@@ -1,0 +1,151 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  AWS CloudFormation template to create ALB + jenkins server
+Parameters:
+  AmiId:
+    Type: AWS::EC2::Image::Id
+    Description: Specifies the AMI ID, using newest linux for us-east-1
+    Default: ami-0fdcbfc2802f642d3
+  InstanceType:
+    Type: String
+    Description: >
+      Specifies the EC2 instance type for jenkins, which is memory intensive usually
+      Defaults to m4.large
+    Default: t4g.small
+    ConstraintDescription: must be a valid EC2 instance type.
+  KeyName:
+    Type: String
+    Description: >
+      Optional - Specifies the name of an existing Amazon EC2 key pair
+      to enable SSH access to the EC2 instances in your cluster.
+    Default: v1
+  BackupBucketName:
+    Type: String
+    Description: Name of s3 Backup bucket to load your jenkins content
+    Default: my-jenkins-backup
+  ConfigBucketName:
+    Type: String
+    Default: config-figgity-fuggity
+
+Resources:
+  EC2Instance1:
+    Type: AWS::EC2::Instance
+    Metadata:    
+      AWS::CloudFormation::Init:
+        configSets:
+          jenkins_install:
+            - setup_jenkins
+        setup_jenkins:
+          packages:
+            yum:
+              tmux: []
+              docker: []
+              cronie: []
+          services:
+            sysvinit:
+              docker:
+                enabled: 'true'
+                ensureRunning: 'true'
+              crond:
+                enabled: 'true'
+                ensureRunning: 'true'
+          files:
+            # /tmp/backup.txt:
+            #   content: !Sub |
+            #     * */5 * * * aws s3 sync /var/jenkins_home > s3://${BackupBucketName}
+            #   mode: "000644"
+            #   owner: "root"
+            #   group: "root"
+            /tmp/Dockerfile:
+              source: https://config-figgity-fuggity.s3.amazonaws.com/Dockerfile
+              mode: "000644"
+              owner: "ec2-user"
+              group: "ec2-user"
+          commands:
+            01_install_docker:
+              command: yum install -y docker
+            02_make_jenkins_dir:
+              command: mkdir -p /var/jenkins_home
+            03_chown_jenkins_dir:
+              command: chown ec2-user:ec2-user /var/jenkins_home && id
+            04_copy_Dockerfile:
+              command: cp /tmp/Dockerfile /var/jenkins_home/
+            05_config_docker_user:
+              command: usermod -a -G docker ec2-user
+            06_start_docker:
+              command: service docker start
+            07_start_docker_network:
+              command: docker network create jenkins
+            08_start_docker_dind:
+              command: docker run -t --name jenkins-docker --rm --detach --privileged --network jenkins --network-alias docker
+                      --env DOCKER_TLS_CERTDIR=/certs --volume jenkins-docker-certs:/certs/client --volume jenkins-data:/var/jenkins_home
+                      --publish 2376:2376 docker:dind --storage-driver overlay2
+            09_build_jenkins_docker_image:
+              command: cd /var/jenkins_home && docker build . -t myjenkins-blueocean:lts-jdk11
+            10_start_jenkins_docker_container:
+              command: docker run -t --name jenkins-blueocean --restart=on-failure --detach --network jenkins --env DOCKER_HOST=tcp://docker:2376
+                      --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 --publish 8080:8080 --publish 50000:50000
+                      --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro myjenkins-blueocean:lts-jdk11
+              test: docker ps -a | grep -v jenkins
+            # 11_backup_jenkins:
+            #   command: crontab /tmp/backup.txt
+            #   test: crontab -l
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: !Ref 'KeyName'
+      UserData: !Base64
+        Fn::Join:
+          - ''
+          - - |
+              #!/bin/bash -xe
+            - |
+            - '/opt/aws/bin/cfn-init -v '
+            - '         --stack '
+            - !Ref 'AWS::StackName'
+            - '         --resource EC2Instance1 '
+            - '         --configsets jenkins_install '
+            - '         --region '
+            - !Ref 'AWS::Region'
+            - |+
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: "jenkins-profile"
+      Roles: 
+        - !Ref InstanceProfileRole
+
+  InstanceProfileRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+
+  InstanceProfileRolePolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AllowS3
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: 's3:*'
+            Resource: 
+              - !GetAtt JenkinsBackUpBucket.Arn
+      Roles:
+        - !Ref InstanceProfileRole
+
+  JenkinsBackUpBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref BackupBucketName

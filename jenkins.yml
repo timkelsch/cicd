@@ -1,0 +1,455 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  AWS CloudFormation template to create ALB + jenkins server
+
+Parameters:
+  Urlname:
+    Description: Will be the first portion of the URL for your jenkins server
+    Type: String
+    Default: jenkins
+    ConstraintDescription: Must be a string.
+  AmiId:
+    Type: AWS::EC2::Image::Id
+    Description: Specifies the AMI ID, using newest linux for us-east-1
+    Default: ami-0fdcbfc2802f642d3
+  InstanceType:
+    Type: String
+    Description: >
+      Specifies the EC2 instance type which is memory intensive usually
+      Defaults to m4.large
+    Default: t4g.small
+    ConstraintDescription: must be a valid EC2 instance type.
+  KeyName:
+    Type: String
+    Description: >
+      Optional - Specifies the name of an existing Amazon EC2 key pair
+      to enable SSH access to the EC2 instances in your cluster.
+    Default: v1
+  BucketName:
+    Type: String
+    Description: Name of s3 Backup bucket to load your jenkins content
+    Default: my-jenkins-backup
+  HostedZoneId:
+    Type: String
+    Description: ID of your hosted zone
+    Default: Z0291479D96D3UFQISZF
+  RootDomain:
+    Type: String
+    Description: root domain (?)
+    Default: timismydaddy.com.
+  SecurityGroupDescription:
+    Description: Security Group Description
+    Type: String
+    Default: This is a description of the security group. It provides security. Idiots.
+  AppLoadbalancerSslCertArn:
+    Description: SSL certificate for Application load balancer
+    Default: arn:aws:acm:us-east-1:287140326780:certificate/9514ecfe-4992-4761-8b73-e1d832ebcebc
+    Type: String
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: 
+        Ref: VPC
+      InternetGatewayId: 
+        Ref: InternetGateway
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select
+        - 3
+        - !GetAZs
+          Ref: AWS::Region
+      MapPublicIpOnLaunch: true
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select
+        - 3
+        - !GetAZs
+          Ref: AWS::Region
+      MapPublicIpOnLaunch: false
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select
+        - 5
+        - !GetAZs
+          Ref: AWS::Region
+      MapPublicIpOnLaunch: true
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select
+        - 5
+        - !GetAZs
+          Ref: AWS::Region
+      MapPublicIpOnLaunch: false
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  EC2Instance1:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          jenkins_install:
+            - setup_jenkins
+        setup_jenkins:
+          packages:
+            yum:
+              tmux: []
+              docker: []
+              cronie: []
+          services:
+            sysvinit:
+              docker:
+                enabled: 'true'
+                ensureRunning: 'true'
+              crond:
+                enabled: 'true'
+                ensureRunning: 'true'
+          files:
+            # /tmp/backup.txt:
+            #   content: !Sub |
+            #     * */5 * * * aws s3 sync /var/jenkins_home > s3://${BackupBucketName}
+            #   mode: "000644"
+            #   owner: "root"
+            #   group: "root"
+            /tmp/Dockerfile:
+              source: https://config-figgity-fuggity.s3.amazonaws.com/Dockerfile
+              mode: "000644"
+              owner: "ec2-user"
+              group: "ec2-user"
+          commands:
+            01_install_docker:
+              command: yum install -y docker
+            02_make_jenkins_dir:
+              command: mkdir -p /var/jenkins_home
+            03_chown_jenkins_dir:
+              command: chown ec2-user:ec2-user /var/jenkins_home && id
+            04_copy_Dockerfile:
+              command: cp /tmp/Dockerfile /var/jenkins_home/
+            05_config_docker_user:
+              command: usermod -a -G docker ec2-user
+            06_start_docker:
+              command: service docker start
+            07_start_docker_network:
+              command: docker network create jenkins
+            08_start_docker_dind:
+              command: docker run -t --name jenkins-docker --rm --detach --privileged --network jenkins --network-alias docker
+                      --env DOCKER_TLS_CERTDIR=/certs --volume jenkins-docker-certs:/certs/client --volume jenkins-data:/var/jenkins_home
+                      --publish 2376:2376 docker:dind --storage-driver overlay2
+            09_build_jenkins_docker_image:
+              command: cd /var/jenkins_home && docker build . -t myjenkins-blueocean:lts-jdk11
+            10_start_jenkins_docker_container:
+              command: docker run -t --name jenkins-blueocean --restart=on-failure --detach --network jenkins --env DOCKER_HOST=tcp://docker:2376
+                      --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 --publish 8080:8080 --publish 50000:50000
+                      --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro myjenkins-blueocean:lts-jdk11
+              test: docker ps -a | grep -v jenkins
+            # 11_backup_jenkins:
+            #   command: crontab /tmp/backup.txt
+            #   test: crontab -l
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: !Ref 'KeyName'
+      UserData: !Base64
+        Fn::Join:
+          - ''
+          - - |
+              #!/bin/bash -xe
+            - |
+            - '/opt/aws/bin/cfn-init -v '
+            - '         --stack '
+            - !Ref 'AWS::StackName'
+            - '         --resource EC2Instance1 '
+            - '         --configsets jenkins_install '
+            - '         --region '
+            - !Ref 'AWS::Region'
+            - |+
+      SecurityGroupIds:
+        - !Ref EC2SecurityGroup
+      SubnetId: !Ref PublicSubnet1
+
+  EC2Instance2:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          jenkins_install:
+            - setup_jenkins
+        setup_jenkins:
+          packages:
+            yum:
+              tmux: []
+              docker: []
+              cronie: []
+          services:
+            sysvinit:
+              docker:
+                enabled: 'true'
+                ensureRunning: 'true'
+              crond:
+                enabled: 'true'
+                ensureRunning: 'true'
+          files:
+            # /tmp/backup.txt:
+            #   content: !Sub |
+            #     * */5 * * * aws s3 sync /var/jenkins_home > s3://${BackupBucketName}
+            #   mode: "000644"
+            #   owner: "root"
+            #   group: "root"
+            /tmp/Dockerfile:
+              source: https://config-figgity-fuggity.s3.amazonaws.com/Dockerfile
+              mode: "000644"
+              owner: "ec2-user"
+              group: "ec2-user"
+          commands:
+            01_install_docker:
+              command: yum install -y docker
+            02_make_jenkins_dir:
+              command: mkdir -p /var/jenkins_home
+            03_chown_jenkins_dir:
+              command: chown ec2-user:ec2-user /var/jenkins_home && id
+            04_copy_Dockerfile:
+              command: cp /tmp/Dockerfile /var/jenkins_home/
+            05_config_docker_user:
+              command: usermod -a -G docker ec2-user
+            06_start_docker:
+              command: service docker start
+            07_start_docker_network:
+              command: docker network create jenkins
+            08_start_docker_dind:
+              command: docker run -t --name jenkins-docker --rm --detach --privileged --network jenkins --network-alias docker
+                      --env DOCKER_TLS_CERTDIR=/certs --volume jenkins-docker-certs:/certs/client --volume jenkins-data:/var/jenkins_home
+                      --publish 2376:2376 docker:dind --storage-driver overlay2
+            09_build_jenkins_docker_image:
+              command: cd /var/jenkins_home && docker build . -t myjenkins-blueocean:lts-jdk11
+            10_start_jenkins_docker_container:
+              command: docker run -t --name jenkins-blueocean --restart=on-failure --detach --network jenkins --env DOCKER_HOST=tcp://docker:2376
+                      --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 --publish 8080:8080 --publish 50000:50000
+                      --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro myjenkins-blueocean:lts-jdk11
+              test: docker ps -a | grep -v jenkins
+            # 11_backup_jenkins:
+            #   command: crontab /tmp/backup.txt
+            #   test: crontab -l
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: !Ref 'KeyName'
+      UserData: !Base64
+        Fn::Join:
+          - ''
+          - - |
+              #!/bin/bash -xe
+            - |
+            - '/opt/aws/bin/cfn-init -v '
+            - '         --stack '
+            - !Ref 'AWS::StackName'
+            - '         --resource EC2Instance2 '
+            - '         --configsets jenkins_install '
+            - '         --region '
+            - !Ref 'AWS::Region'
+            - |+
+      SecurityGroupIds:
+        - !Ref EC2SecurityGroup
+      SubnetId: !Ref PublicSubnet2
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: "jenkins-profile"
+      Roles: 
+        - !Ref InstanceProfileRole
+
+  InstanceProfileRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+
+  InstanceProfileRolePolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AllowS3
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: 's3:*'
+            Resource: !GetAtt JenkinsBackUpBucket.Arn
+      Roles:
+        - !Ref InstanceProfileRole
+
+  # EC2 and ALB Security Groups
+  ELBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ELB Security Group
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: 0.0.0.0/0
+
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Ref SecurityGroupDescription
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: icmp
+        FromPort: 8
+        ToPort: -1
+        CidrIp: 0.0.0.0/0
+
+  # Target Group, Listener and Application Load Balancer
+  EC2TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 15
+      HealthyThresholdCount: 5
+      Matcher:
+        HttpCode: '200'
+      Name: EC2TargetGroup
+      Port: 8080
+      Protocol: HTTP
+      TargetGroupAttributes:
+      - Key: deregistration_delay.timeout_seconds
+        Value: '20'
+      Targets:
+      - Id: !Ref EC2Instance1
+      - Id: !Ref EC2Instance2
+      UnhealthyThresholdCount: 3
+      VpcId: !Ref VPC
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Certificates:
+      - CertificateArn: !Ref AppLoadbalancerSslCertArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref EC2TargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Subnets:
+      - !Ref PublicSubnet1
+      - !Ref PublicSubnet2
+      SecurityGroups:
+        - !GetAtt ELBSecurityGroup.GroupId
+
+  JenkinsBackUpBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref BucketName
+ 
+  LoadBalancerCname:
+    Type: 'AWS::Route53::RecordSet'
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Join [ ".", [ !Ref Urlname, !Ref RootDomain ] ]
+      Type: CNAME
+      TTL: '60'
+      ResourceRecords:
+      - !GetAtt ApplicationLoadBalancer.DNSName
+
+Outputs:
+  LoadBalancerUrl:
+    Description: The URL of the ALB
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
