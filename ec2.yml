@@ -91,7 +91,6 @@ Resources:
             14_run_socket-fixer:
               command: cd /var/jenkins_home && ./socket-fixer.sh
     Properties:
-      Name: ec2
       ImageId: !Ref AmiId
       InstanceType: !Ref InstanceType
       IamInstanceProfile: !Ref InstanceProfileTest
