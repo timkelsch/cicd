@@ -10,14 +10,14 @@ Parameters:
     ConstraintDescription: Must be a string.
   AmiId:
     Type: AWS::EC2::Image::Id
-    Description: Specifies the AMI ID, using newest linux for us-east-1
-    Default: ami-04cb4ca688797756f
+    Description: Specifies the AMI ID, using AL2 for arm64
+    Default: ami-0571d1c0feed82a15
   InstanceType:
     Type: String
     Description: >
       Specifies the EC2 instance type which is memory intensive usually
       Defaults to m4.large
-    Default: t3.micro
+    Default: t4g.small
     ConstraintDescription: must be a valid EC2 instance type.
   KeyName:
     Type: String
