@@ -35,6 +35,7 @@ Resources:
           packages:
             yum:
               docker: []
+              python-pip: []
           services:
             sysvinit:
               docker:
@@ -58,18 +59,20 @@ Resources:
               group: "ec2-user"
           commands:
             01_install_docker:
-              command: yum install -y docker
+              command: yum update -y && yum install -y docker
             02_install_awscli:
               command: curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip" && unzip awscliv2.zip && ./aws/install
-            02_make_jenkins_dir:
+            02_install_samcli:
+              command: yes | pip install aws-sam-cli
+            03_make_jenkins_dir:
               command: mkdir -p /var/jenkins_home /var/jenkins_home/.aws
-            03_chown_jenkins_dir:
+            04_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
-            04_copy_files:
+            05_copy_files:
               command: cp /tmp/Dockerfile /tmp/socket-fixer.sh /var/jenkins_home/ && cp /tmp/.credentials /var/jenkins_home/.aws/
-            05_config_docker_user:
+            06_config_docker_user:
               command: usermod -a -G docker ec2-user
-            06_start_docker:
+            07_start_docker:
               command: service docker start
             07_chgrp_docker.sock:
               command: chgrp docker /var/run/docker.sock && ls -l /var/run/docker.sock
@@ -151,6 +154,9 @@ Resources:
             - cloudformation:CreateChangeSet
             Resource:
             - arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31
+          - Effect: Allow
+            Action: ecr:*
+            Resource: !Sub arn:aws:ecr:region:${AWS::AccountId}:repository/lambda-sam-go
           - Sid: CloudFormationStack
             Effect: Allow
             Action:
