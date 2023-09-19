@@ -16,6 +16,7 @@ COPY install-aws-tools.sh .
 COPY install-plugins.sh .
 RUN chown -R jenkins:jenkins /var/jenkins_home
 RUN ./install-aws-tools.sh
+RUN ./install-plugins.sh
 
 USER jenkins
 WORKDIR /var/jenkins_home
