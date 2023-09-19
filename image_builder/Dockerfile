@@ -1,6 +1,6 @@
 # reset to the latest emulation image after the raised issue got solved.
 # FROM public.ecr.aws/lambda/go:1
-FROM public.ecr.aws/lambda/go:latest-arm64
+FROM public.ecr.aws/lambda/go:latest
 
 RUN yum groupinstall -y development && \
   yum install -d1 -y \
@@ -38,7 +38,7 @@ RUN rm awscliv2.zip
 RUN rm -rf ./aws
 
 # Prepare virtualenv for lambda builders
-# RUN python3 -m venv --without-pip /usr/local/opt/lambda-builders
+RUN python3 -m venv --without-pip /usr/local/opt/lambda-builders
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
 RUN /usr/local/opt/lambda-builders/bin/python3 get-pip.py
 # Install lambda builders in a dedicated Python virtualenv
