@@ -4,8 +4,8 @@ Description: >
 Parameters:
   AmiId:
     Type: AWS::EC2::Image::Id
-    Description: Specifies the AMI ID, using newest linux for us-east-1
-    Default: ami-06f9c0b2ce386dda7
+    Description: Specifies the AMI ID, using AL2 for arm64
+    Default: ami-0571d1c0feed82a15
   InstanceType:
     Type: String
     Description: >

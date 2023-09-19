@@ -1,8 +1,6 @@
-# reset to the latest emulation image after the raised issue got solved.
-# FROM public.ecr.aws/lambda/go:1
-FROM public.ecr.aws/lambda/go:latest
+FROM --platform=linux/arm64 public.ecr.aws/lambda/go:latest
 
-RUN yum groupinstall -y development && \
+RUN yum group install -y development && \
   yum install -d1 -y \
   tar \
   gzip \
