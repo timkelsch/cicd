@@ -66,48 +66,35 @@ Resources:
               mode: "000400"
               owner: "ec2-user"
               group: "ec2-user"
+            /tmp/install-plugins.sh:
+              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/install-plugins.sh
+              mode: "000700"
+              owner: "ec2-user"
+              group: "ec2-user"
           commands:
             01_make_jenkins_dir:
               command: mkdir -p /var/jenkins_home /var/jenkins_home/.aws
             02_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
             03_copy_files:
-              command: cp /tmp/{Dockerfile,socket-fixer.sh,jenkins-plugins.txt,install-aws-tools.sh} /var/jenkins_home/ && cp /tmp/.credentials /var/jenkins_home/.aws/
+              command: cp /tmp/{Dockerfile,socket-fixer.sh,jenkins-plugins.txt,install-aws-tools.sh,install-plugins.sh} /var/jenkins_home/ && cp /tmp/.credentials /var/jenkins_home/.aws/
             04_install_docker:
               command: yum update -y
-            07_config_docker_user:
+            05_config_docker_user:
               command: usermod -a -G docker ec2-user
-            08_start_docker:
-              command: service docker start && ls -l /var/run/docker.sock
-            09_chgrp_docker.sock:
-              command: chgrp docker /var/run/docker.sock && ls -l /var/run/docker.sock
-            10_build_jenkins_docker_image:
+            06_start_docker:
+              command: service docker start
+            07_chgrp_docker.sock:
+              command: chgrp docker /var/run/docker.sock
+            08_build_jenkins_docker_image:
               command: cd /var/jenkins_home && DOCKER_BUILDKIT=1 docker build -t jenkins .
-            10b_check_sock:
-              command: ls -l /var/run/docker.sock
-            11_start_jenkins_docker_container:
+            09_start_jenkins_docker_container:
               command: docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
                         --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro 
                         --volume /var/run/docker.sock:/var/run/docker.sock jenkins
               test: docker ps -a | grep -v jenkins
-            11b_check_sock:
-              command: ls -l /var/run/docker.sock
-            # 12_docker_stop: 
-            #   command: docker stop jenkins
-            # 12b_check_sock:
-            #   command: ls -l /var/run/docker.sock
-            # 13_copy_data_from_s3:
-            #   command: cd /var/lib/docker/volumes/jenkins-data && aws s3 cp --quiet s3://config-figgity-fuggity/jenkins.tgz .
-            # 14_unpack_tarball:
-            #   command: cd /var/lib/docker/volumes/jenkins-data && tar zxf jenkins.tgz
-            15_start_container:
-              command: docker start jenkins
-            15b_check_sock:
-              command: ls -l /var/run/docker.sock
-            16_run_socket-fixer:
+            10_run_socket-fixer:
               command: cd /var/jenkins_home && ./socket-fixer.sh
-            16b_check_sock:
-              command: ls -l /var/run/docker.sock
     Properties:
       ImageId: !Ref AmiId
       InstanceType: !Ref InstanceType
