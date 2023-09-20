@@ -1,0 +1,224 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  AWS CloudFormation template to create ALB + jenkins server
+Parameters:
+  AmiId:
+    Type: AWS::EC2::Image::Id
+    Description: Specifies the AMI ID, using AL2 for arm64
+    Default: ami-0571d1c0feed82a15
+  InstanceType:
+    Type: String
+    Description: >
+      Specifies the EC2 instance type for jenkins, which is memory intensive usually
+      Defaults to m4.large
+    Default: t4g.small
+    ConstraintDescription: must be a valid EC2 instance type.
+  KeyName:
+    Type: String
+    Description: >
+      Optional - Specifies the name of an existing Amazon EC2 key pair
+      to enable SSH access to the EC2 instances in your cluster.
+    Default: v1
+  ConfigBucketName:
+    Type: String
+    Default: config-figgity-fuggity
+
+Resources:
+  EC2Instance3:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          jenkins_install:
+            - setup_jenkins
+        setup_jenkins:
+          packages:
+            yum:
+              docker: []
+          services:
+            sysvinit:
+              docker:
+                enabled: 'true'
+                ensureRunning: 'true'
+          files:
+            /tmp/Dockerfile:
+              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/Dockerfile
+              mode: "000640"
+              owner: "ec2-user"
+              group: "ec2-user"
+            /tmp/socket-fixer.sh:
+              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/socket-fixer.sh
+              mode: "000740"
+              owner: "ec2-user"
+              group: "ec2-user"
+            /tmp/install-aws-tools.sh: 
+              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/install-aws-tools.sh
+              mode: "000740"
+              owner: "ec2-user"
+              group: "ec2-user"
+            /tmp/.credentials:
+              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/.credentials
+              mode: "000400"
+              owner: "ec2-user"
+              group: "ec2-user"
+            /tmp/jenkins-plugins.txt:
+              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/jenkins-plugins.txt
+              mode: "000400"
+              owner: "ec2-user"
+              group: "ec2-user"
+            /tmp/install-plugins.sh:
+              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/install-plugins.sh
+              mode: "000700"
+              owner: "ec2-user"
+              group: "ec2-user"
+          commands:
+            01_make_jenkins_dir:
+              command: mkdir -p /var/jenkins_home /var/jenkins_home/.aws
+            02_chown_jenkins_dir:
+              command: chown -R ec2-user:ec2-user /var/jenkins_home
+            03_copy_files:
+              command: cp /tmp/{Dockerfile,socket-fixer.sh,jenkins-plugins.txt,install-aws-tools.sh,install-plugins.sh} /var/jenkins_home/ && cp /tmp/.credentials /var/jenkins_home/.aws/
+            04_install_docker:
+              command: yum update -y
+            05_config_docker_user:
+              command: usermod -a -G docker ec2-user
+            06_start_docker:
+              command: service docker start
+            07_chgrp_docker.sock:
+              command: chgrp docker /var/run/docker.sock
+            08_build_jenkins_docker_image:
+              command: cd /var/jenkins_home && DOCKER_BUILDKIT=1 docker build -t jenkins .
+            09_start_jenkins_docker_container:
+              command: docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
+                        --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro 
+                        --volume /var/run/docker.sock:/var/run/docker.sock jenkins
+              test: docker ps -a | grep -v jenkins
+            10_run_socket-fixer:
+              command: cd /var/jenkins_home && ./socket-fixer.sh
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfileTest3
+      KeyName: !Ref 'KeyName'
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: '30'
+            DeleteOnTermination: 'false'
+            Encrypted: 'true'
+      UserData: !Base64
+        Fn::Join:
+          - ''
+          - - |
+              #!/bin/bash -xe
+            - |
+            - '/opt/aws/bin/cfn-init -v '
+            - '         --stack '
+            - !Ref 'AWS::StackName'
+            - '         --resource EC2Instance3 '
+            - '         --configsets jenkins_install '
+            - '         --region '
+            - !Ref 'AWS::Region'
+            - |+
+
+  InstanceProfileTest3:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: "jenkins-test-profile"
+      Roles: 
+        - !Ref InstanceProfileRoleTest3
+
+  InstanceProfileRoleTest3:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+
+  InstanceProfileRoleTestPoliciesTest3:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AllowS3
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CloudFormationTemplate
+            Effect: Allow
+            Action:
+            - cloudformation:CreateChangeSet
+            Resource:
+            - arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31
+          - Effect: Allow
+            Action: ecr:*
+            Resource: !Sub arn:aws:ecr:region:${AWS::AccountId}:repository/lambda-sam-go
+          - Sid: CloudFormationStack
+            Effect: Allow
+            Action:
+            - cloudformation:CreateChangeSet
+            - cloudformation:DeleteStack
+            - cloudformation:DescribeChangeSet
+            - cloudformation:DescribeStackEvents
+            - cloudformation:DescribeStacks
+            - cloudformation:ExecuteChangeSet
+            - cloudformation:GetTemplateSummary
+            Resource:
+            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/*
+          - Sid: S3
+            Effect: Allow
+            Action:
+            - s3:List*
+            - s3:Get*
+            - s3:CreateBucket
+            - s3:GetObject
+            - s3:PutObject
+            Resource:
+            - arn:aws:s3:::config-figgity-fuggity
+            - arn:aws:s3:::config-figgity-fuggity/*
+          - Sid: Lambda
+            Effect: Allow
+            Action:
+            - lambda:AddPermission
+            - lambda:CreateFunction
+            - lambda:DeleteFunction
+            - lambda:GetFunction
+            - lambda:GetFunctionConfiguration
+            - lambda:ListTags
+            - lambda:RemovePermission
+            - lambda:TagResource
+            - lambda:UntagResource
+            - lambda:UpdateFunctionCode
+            - lambda:UpdateFunctionConfiguration
+            Resource:
+            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
+          - Sid: IAM
+            Effect: Allow
+            Action:
+            - iam:AttachRolePolicy
+            - iam:CreateRole
+            - iam:DeleteRole
+            - iam:DetachRolePolicy
+            - iam:GetRole
+            - iam:PassRole
+            - iam:TagRole
+            Resource:
+            - !Sub arn:aws:iam::${AWS::AccountId}:role/*
+          - Sid: APIGateway
+            Effect: Allow
+            Action:
+            - apigateway:DELETE
+            - apigateway:GET
+            - apigateway:PATCH
+            - apigateway:POST
+            - apigateway:PUT
+            Resource:
+            - arn:aws:apigateway:*::*
+      Roles:
+        - !Ref InstanceProfileRoleTest3

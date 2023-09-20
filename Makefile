@@ -5,6 +5,9 @@ deploy:
 dec:
 	aws cloudformation deploy --template-file ec2.yml --stack-name ec2 --capabilities CAPABILITY_NAMED_IAM
 
+dec2:
+	aws cloudformation deploy --template-file ec3.yml --stack-name ec3 --capabilities CAPABILITY_NAMED_IAM
+
 vec:
 	sam validate --lint -t ec2.yml
 
