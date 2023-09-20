@@ -125,7 +125,7 @@ Resources:
   InstanceProfileTest3:
     Type: AWS::IAM::InstanceProfile
     Properties:
-      InstanceProfileName: "jenkins-test-profile"
+      InstanceProfileName: "jenkins-test-profile3"
       Roles: 
         - !Ref InstanceProfileRoleTest3
 
