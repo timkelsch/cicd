@@ -11,6 +11,9 @@ dec2:
 vec:
 	sam validate --lint -t ec2.yml
 
+vec2:
+	sam validate --lint -t ec3.yml
+
 validate:
 	sam validate --lint -t jenkins.yml
 
