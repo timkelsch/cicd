@@ -51,7 +51,7 @@ Resources:
               mode: "000740"
               owner: "ec2-user"
               group: "ec2-user"
-            /tmp/install-aws-tools.sh: 
+            /tmp/install-aws-tools.sh:
               source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/install-aws-tools.sh
               mode: "000740"
               owner: "ec2-user"
@@ -72,6 +72,8 @@ Resources:
               owner: "ec2-user"
               group: "ec2-user"
           commands:
+            00_test_s3_download:
+              command: aws s3 cp s3://config-figgity-fuggity/jenkins-plugins.txt /tmp/jenkins-plugins.txt
             01_make_jenkins_dir:
               command: mkdir -p /var/jenkins_home /var/jenkins_home/.aws
             02_chown_jenkins_dir:
@@ -146,7 +148,7 @@ Resources:
   InstanceProfileRoleTestPoliciesTest3:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: AllowS3
+      PolicyName: jenkinsPolicy
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -158,7 +160,7 @@ Resources:
             - arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31
           - Effect: Allow
             Action: ecr:*
-            Resource: !Sub arn:aws:ecr:region:${AWS::AccountId}:repository/lambda-sam-go
+            Resource: !Sub arn:aws:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
           - Sid: CloudFormationStack
             Effect: Allow
             Action:
@@ -170,23 +172,31 @@ Resources:
             - cloudformation:ExecuteChangeSet
             - cloudformation:GetTemplateSummary
             Resource:
-            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/*
+            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring
+            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring/*
           - Sid: S3
             Effect: Allow
             Action:
             - s3:List*
             - s3:Get*
-            - s3:CreateBucket
+            - s3:CreateMultipartUpload
             - s3:GetObject
             - s3:PutObject
             Resource:
             - arn:aws:s3:::config-figgity-fuggity
             - arn:aws:s3:::config-figgity-fuggity/*
+            - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg
+            - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg/*            
+          - Sid: CreateLambda
+            Effect: Allow
+            Action:
+            - lambda:CreateFunction
+            Resource:
+            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
           - Sid: Lambda
             Effect: Allow
             Action:
             - lambda:AddPermission
-            - lambda:CreateFunction
             - lambda:DeleteFunction
             - lambda:GetFunction
             - lambda:GetFunctionConfiguration
@@ -197,7 +207,13 @@ Resources:
             - lambda:UpdateFunctionCode
             - lambda:UpdateFunctionConfiguration
             Resource:
-            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
+            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:mfl-scoring-MflScoringFunction-ZOOH586c3NQZ
+          - Sid: CreateIAM
+            Effect: Allow
+            Action:
+            - iam:CreateRole
+            Resource:
+            - !Sub arn:aws:iam::${AWS::AccountId}:role/*
           - Sid: IAM
             Effect: Allow
             Action:
@@ -209,8 +225,8 @@ Resources:
             - iam:PassRole
             - iam:TagRole
             Resource:
-            - !Sub arn:aws:iam::${AWS::AccountId}:role/*
-          - Sid: APIGateway
+            - !Sub arn:aws:iam::${AWS::AccountId}:role/mfl-scoring-MflScoringFunctionIamRole-12ITGEOKQJ4LZ
+            - Sid: APIGateway
             Effect: Allow
             Action:
             - apigateway:DELETE
@@ -219,6 +235,6 @@ Resources:
             - apigateway:POST
             - apigateway:PUT
             Resource:
-            - arn:aws:apigateway:*::*
+            - arn:aws:apigateway:us-east-1:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
       Roles:
         - !Ref InstanceProfileRoleTest3

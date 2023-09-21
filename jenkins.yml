@@ -327,15 +327,15 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Effect: Allow
-            Action: 's3:*'
-            Resource: !GetAtt JenkinsBackUpBucket.Arn
           - Sid: CloudFormationTemplate
             Effect: Allow
             Action:
             - cloudformation:CreateChangeSet
             Resource:
             - arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31
+          - Effect: Allow
+            Action: ecr:*
+            Resource: !Sub arn:aws:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
           - Sid: CloudFormationStack
             Effect: Allow
             Action:
@@ -347,20 +347,31 @@ Resources:
             - cloudformation:ExecuteChangeSet
             - cloudformation:GetTemplateSummary
             Resource:
-            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/*
+            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring
+            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring/*
           - Sid: S3
             Effect: Allow
             Action:
-            - s3:CreateBucket
+            - s3:List*
+            - s3:Get*
+            - s3:CreateMultipartUpload
             - s3:GetObject
             - s3:PutObject
             Resource:
-            - arn:aws:s3:::*/*
+            - arn:aws:s3:::config-figgity-fuggity
+            - arn:aws:s3:::config-figgity-fuggity/*
+            - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg
+            - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg/*            
+          - Sid: CreateLambda
+            Effect: Allow
+            Action:
+            - lambda:CreateFunction
+            Resource:
+            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
           - Sid: Lambda
             Effect: Allow
             Action:
             - lambda:AddPermission
-            - lambda:CreateFunction
             - lambda:DeleteFunction
             - lambda:GetFunction
             - lambda:GetFunctionConfiguration
@@ -371,7 +382,13 @@ Resources:
             - lambda:UpdateFunctionCode
             - lambda:UpdateFunctionConfiguration
             Resource:
-            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
+            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:mfl-scoring-MflScoringFunction-ZOOH586c3NQZ
+          - Sid: CreateIAM
+            Effect: Allow
+            Action:
+            - iam:CreateRole
+            Resource:
+            - !Sub arn:aws:iam::${AWS::AccountId}:role/*
           - Sid: IAM
             Effect: Allow
             Action:
@@ -383,8 +400,8 @@ Resources:
             - iam:PassRole
             - iam:TagRole
             Resource:
-            - !Sub arn:aws:iam::${AWS::AccountId}:role/*
-          - Sid: APIGateway
+            - !Sub arn:aws:iam::${AWS::AccountId}:role/mfl-scoring-MflScoringFunctionIamRole-12ITGEOKQJ4LZ
+            - Sid: APIGateway
             Effect: Allow
             Action:
             - apigateway:DELETE
@@ -393,7 +410,7 @@ Resources:
             - apigateway:POST
             - apigateway:PUT
             Resource:
-            - arn:aws:apigateway:*::*
+            - arn:aws:apigateway:us-east-1:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
       Roles:
         - !Ref InstanceProfileRole
 

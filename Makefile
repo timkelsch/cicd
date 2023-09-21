@@ -18,7 +18,14 @@ validate:
 	sam validate --lint -t jenkins.yml
 
 sshec2:
-	ssh -i ~/.ssh/v1.pem ec2-user@ec2-3-80-72-20.compute-1.amazonaws.com
+	ssh -i ~/.ssh/v1.pem ec2-user@ec2-3-95-181-116.compute-1.amazonaws.com
+
+sshec3:
+	ssh -i ~/.ssh/v1.pem ec2-user@ec2-34-229-97-22.compute-1.amazonaws.com
 
 ssh:
 	ssh -i ~/.ssh/v1.pem ec2-user@ec2-52-90-143-113.compute-1.amazonaws.com
+
+updateinit:
+	tar zcvf init.tgz init-files/*
+	aws s3 cp init.tgz s3://config-figgity-fuggity/

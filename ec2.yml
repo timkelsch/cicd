@@ -19,9 +19,9 @@ Parameters:
       Optional - Specifies the name of an existing Amazon EC2 key pair
       to enable SSH access to the EC2 instances in your cluster.
     Default: v1
-  ConfigBucketName:
-    Type: String
-    Default: config-figgity-fuggity
+  # ConfigBucketName:
+  #   Type: String
+  #   Default: config-figgity-fuggity
 
 Resources:
   EC2Instance1:
@@ -40,44 +40,48 @@ Resources:
               docker:
                 enabled: 'true'
                 ensureRunning: 'true'
-          files:
-            /tmp/Dockerfile:
-              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/Dockerfile
-              mode: "000640"
-              owner: "ec2-user"
-              group: "ec2-user"
-            /tmp/socket-fixer.sh:
-              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/socket-fixer.sh
-              mode: "000740"
-              owner: "ec2-user"
-              group: "ec2-user"
-            /tmp/install-aws-tools.sh: 
-              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/install-aws-tools.sh
-              mode: "000740"
-              owner: "ec2-user"
-              group: "ec2-user"
-            /tmp/.credentials:
-              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/.credentials
-              mode: "000400"
-              owner: "ec2-user"
-              group: "ec2-user"
-            /tmp/jenkins-plugins.txt:
-              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/jenkins-plugins.txt
-              mode: "000400"
-              owner: "ec2-user"
-              group: "ec2-user"
-            /tmp/install-plugins.sh:
-              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/install-plugins.sh
-              mode: "000700"
-              owner: "ec2-user"
-              group: "ec2-user"
+          # files:
+            # /tmp/Dockerfile:
+            #   source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/Dockerfile
+            #   mode: "000640"
+            #   owner: "ec2-user"
+            #   group: "ec2-user"
+            # /tmp/socket-fixer.sh:
+            #   source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/socket-fixer.sh
+            #   mode: "000740"
+            #   owner: "ec2-user"
+            #   group: "ec2-user"
+            # /tmp/install-aws-tools.sh: 
+            #   source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/install-aws-tools.sh
+            #   mode: "000740"
+            #   owner: "ec2-user"
+            #   group: "ec2-user"
+            # /tmp/.credentials:
+            #   source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/.credentials
+            #   mode: "000400"
+            #   owner: "ec2-user"
+            #   group: "ec2-user"
+            # /tmp/jenkins-plugins.txt:
+            #   source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/jenkins-plugins.txt
+            #   mode: "000400"
+            #   owner: "ec2-user"
+            #   group: "ec2-user"
+            # /tmp/install-plugins.sh:
+            #   source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/install-plugins.sh
+            #   mode: "000700"
+            #   owner: "ec2-user"
+            #   group: "ec2-user"
           commands:
+            00_test_s3_download:
+              command: aws s3 cp s3://config-figgity-fuggity/init.tgz /tmp/init.tgz
+            01_unpack:
+              command: cd /tmp && tar zxvf init.tgz
             01_make_jenkins_dir:
-              command: mkdir -p /var/jenkins_home /var/jenkins_home/.aws
+              command: mkdir -p /var/jenkins_home/install /var/jenkins_home/.aws
+            03_copy_files:
+              command: cp /tmp/init/{Dockerfile,socket-fixer.sh,jenkins-plugins.txt,install-aws-tools.sh,install-plugins.sh} /var/jenkins_home/install/ && cp /tmp/.credentials /var/jenkins_home/.aws/
             02_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
-            03_copy_files:
-              command: cp /tmp/{Dockerfile,socket-fixer.sh,jenkins-plugins.txt,install-aws-tools.sh,install-plugins.sh} /var/jenkins_home/ && cp /tmp/.credentials /var/jenkins_home/.aws/
             04_install_docker:
               command: yum update -y
             05_config_docker_user:
@@ -87,14 +91,14 @@ Resources:
             07_chgrp_docker.sock:
               command: chgrp docker /var/run/docker.sock
             08_build_jenkins_docker_image:
-              command: cd /var/jenkins_home && DOCKER_BUILDKIT=1 docker build -t jenkins .
+              command: cd /var/jenkins_home/install/ && DOCKER_BUILDKIT=1 docker build -t jenkins .
             09_start_jenkins_docker_container:
               command: docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
                         --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro 
                         --volume /var/run/docker.sock:/var/run/docker.sock jenkins
               test: docker ps -a | grep -v jenkins
             10_run_socket-fixer:
-              command: cd /var/jenkins_home && ./socket-fixer.sh
+              command: cd /var/jenkins_home/install/ && ./socket-fixer.sh
     Properties:
       ImageId: !Ref AmiId
       InstanceType: !Ref InstanceType
@@ -158,7 +162,7 @@ Resources:
             - arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31
           - Effect: Allow
             Action: ecr:*
-            Resource: !Sub arn:aws:ecr:region:${AWS::AccountId}:repository/lambda-sam-go
+            Resource: !Sub arn:aws:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
           - Sid: CloudFormationStack
             Effect: Allow
             Action:
@@ -170,23 +174,31 @@ Resources:
             - cloudformation:ExecuteChangeSet
             - cloudformation:GetTemplateSummary
             Resource:
-            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/*
+            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring
+            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring/*
           - Sid: S3
             Effect: Allow
             Action:
             - s3:List*
             - s3:Get*
-            - s3:CreateBucket
+            - s3:CreateMultipartUpload
             - s3:GetObject
             - s3:PutObject
             Resource:
             - arn:aws:s3:::config-figgity-fuggity
             - arn:aws:s3:::config-figgity-fuggity/*
+            - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg
+            - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg/*            
+          - Sid: CreateLambda
+            Effect: Allow
+            Action:
+            - lambda:CreateFunction
+            Resource:
+            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
           - Sid: Lambda
             Effect: Allow
             Action:
             - lambda:AddPermission
-            - lambda:CreateFunction
             - lambda:DeleteFunction
             - lambda:GetFunction
             - lambda:GetFunctionConfiguration
@@ -197,7 +209,13 @@ Resources:
             - lambda:UpdateFunctionCode
             - lambda:UpdateFunctionConfiguration
             Resource:
-            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
+            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:mfl-scoring-MflScoringFunction-ZOOH586c3NQZ
+          - Sid: CreateIAM
+            Effect: Allow
+            Action:
+            - iam:CreateRole
+            Resource:
+            - !Sub arn:aws:iam::${AWS::AccountId}:role/*
           - Sid: IAM
             Effect: Allow
             Action:
@@ -209,7 +227,7 @@ Resources:
             - iam:PassRole
             - iam:TagRole
             Resource:
-            - !Sub arn:aws:iam::${AWS::AccountId}:role/*
+            - !Sub arn:aws:iam::${AWS::AccountId}:role/mfl-scoring-MflScoringFunctionIamRole-12ITGEOKQJ4LZ
           - Sid: APIGateway
             Effect: Allow
             Action:
@@ -219,7 +237,7 @@ Resources:
             - apigateway:POST
             - apigateway:PUT
             Resource:
-            - arn:aws:apigateway:*::*
+            - !Sub arn:aws:apigateway:us-east-1:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
       Roles:
         - !Ref InstanceProfileRoleTest
 

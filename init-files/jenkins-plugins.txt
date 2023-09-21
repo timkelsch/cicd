@@ -1,0 +1,8 @@
+configuration-as-code
+docker-workflow
+git-parameter
+golang
+pipeline-stage-view
+purge-job-history
+timestamper
+ws-cleanup
