@@ -20,7 +20,7 @@ RUN cd ..
 # RUN ./install-plugins.sh
 
 USER jenkins
-WORKDIR /var/jenkins_home
+WORKDIR /var/jenkins_home/install
 RUN ./install-aws-tools.sh
 RUN echo "alias si='/opt/aws/bin/cfn-init \
   -v --stack ec2 --resource EC2Instance1 --configsets jenkins_install --region us-east-1'" >> ~/.bashrc
