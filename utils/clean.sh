@@ -1,6 +1,6 @@
 #!/bin/bash
 
-JB='basejenkins'
+JB='jenkins'
 
 docker stop $JB
 docker rm $JB

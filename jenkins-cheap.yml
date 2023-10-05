@@ -41,24 +41,24 @@ Resources:
                 enabled: 'true'
                 ensureRunning: 'true'
           commands:
-            00_test_s3_download:
-              command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
-            01_unpack:
-              command: cd /tmp && tar zxvf init.tgz
-            02_create_jenkins_dirs:
-              command: mkdir -p /var/jenkins_home/{install,.aws}
-            03_copy_files:
-              command: cp -p /tmp/init-files/* /var/jenkins_home/install/ && cp -p /tmp/init-files/.aws/.credentials /var/jenkins_home/.aws/
-            04_chown_jenkins_dir:
-              command: chown -R ec2-user:ec2-user /var/jenkins_home
-            05_update_system:
-              command: yum update -y
-            06_config_docker_user:
-              command: usermod -a -G docker ec2-user
-            07_start_docker:
+            00_start_docker:
               command: service docker start
-            08_chgrp_docker.sock:
+            01_config_docker_user:
+              command: usermod -a -G docker ec2-user
+            02_chgrp_docker.sock:
               command: chgrp docker /var/run/docker.sock
+            03_test_s3_download:
+              command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
+            04_unpack:
+              command: cd /tmp && tar zxvf init.tgz
+            05_create_jenkins_dirs:
+              command: mkdir -p /var/jenkins_home/{install,.aws}
+            06_copy_files:
+              command: cp -p /tmp/init-files/* /var/jenkins_home/install/ && cp -p /tmp/init-files/.aws/.credentials /var/jenkins_home/.aws/
+            07_chown_jenkins_dir:
+              command: chown -R ec2-user:ec2-user /var/jenkins_home
+            08_update_system:
+              command: yum update -y
             09_build_jenkins_docker_image:
               command: cd /var/jenkins_home/install/ && DOCKER_BUILDKIT=1 docker build -t jenkins .
             10_start_jenkins_docker_container:
