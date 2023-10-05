@@ -80,7 +80,7 @@ Resources:
           Ebs:
             VolumeType: gp3
             VolumeSize: '30'
-            DeleteOnTermination: 'false'
+            DeleteOnTermination: 'true'
             Encrypted: 'true'
       UserData: !Base64
         Fn::Join:

@@ -16,7 +16,6 @@ Parameters:
     Type: String
     Description: >
       Specifies the EC2 instance type which is memory intensive usually
-      Defaults to m4.large
     Default: t4g.small
     ConstraintDescription: must be a valid EC2 instance type.
   KeyName:
@@ -170,43 +169,47 @@ Resources:
               docker:
                 enabled: 'true'
                 ensureRunning: 'true'
-          files:
-            /tmp/Dockerfile:
-              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/Dockerfile
-              mode: "000640"
-              owner: "ec2-user"
-              group: "ec2-user"
-            /tmp/socket-fixer.sh:
-              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/socket-fixer.sh
-              mode: "000740"
-              owner: "ec2-user"
-              group: "ec2-user"
           commands:
-            01_install_docker:
-              command: yum install -y docker
-            02_make_jenkins_dir:
-              command: mkdir -p /var/jenkins_home
-            03_chown_jenkins_dir:
-              command: chown ec2-user:ec2-user /var/jenkins_home
-            04_copy_files:
-              command: cp /tmp/Dockerfile /tmp/socket-fixer.sh /var/jenkins_home/
-            05_config_docker_user:
-              command: usermod -a -G docker ec2-user
-            06_start_docker:
+            00_start_docker:
               command: service docker start
-            07_build_jenkins_docker_image:
-              command: cd /var/jenkins_home && docker build . -t jenkins
-            08_start_jenkins_docker_container:
-              command: docker run -t --name jenkins2 --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
+            01_config_docker_user:
+              command: usermod -a -G docker ec2-user
+            02_chgrp_docker.sock:
+              command: chgrp docker /var/run/docker.sock
+            03_test_s3_download:
+              command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
+            04_unpack:
+              command: cd /tmp && tar zxvf init.tgz
+            05_create_jenkins_dirs:
+              command: mkdir -p /var/jenkins_home/{install,.aws}
+            06_copy_files:
+              command: cp -p /tmp/init-files/* /var/jenkins_home/install/ && cp -p /tmp/init-files/.aws/.credentials /var/jenkins_home/.aws/
+            07_chown_jenkins_dir:
+              command: chown -R ec2-user:ec2-user /var/jenkins_home
+            08_update_system:
+              command: yum update -y
+            09_build_jenkins_docker_image:
+              command: cd /var/jenkins_home/install/ && DOCKER_BUILDKIT=1 docker build -t jenkins .
+            10_start_jenkins_docker_container:
+              command: docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
                         --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro 
-                        --volume /var/run/docker.sock:/var/run/docker.sock jenkins2
-              test: docker ps -a | grep -v jenkins
-            09_run_socket-fixer:
-              command: cd /var/jenkins_home && ./socket-fixer.sh
+                        --volume /var/run/docker.sock:/var/run/docker.sock jenkins
+              test: test $( docker ps -a | grep jenkins | wc -l ) -eq 0
+            11_run_socket-fixer:
+              command: cd /var/jenkins_home/install/ && ./socket-fixer.sh
+            12_run_breadcrumb-fixer:
+              command: cd /var/jenkins_home/install/ && ./breadcrumb-fixer.sh
     Properties:
       ImageId: !Ref AmiId
       InstanceType: !Ref InstanceType
       IamInstanceProfile: !Ref InstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: '30'
+            DeleteOnTermination: 'true'
+            Encrypted: 'true'
       KeyName: !Ref 'KeyName'
       UserData: !Base64
         Fn::Join:
@@ -236,51 +239,54 @@ Resources:
         setup_jenkins:
           packages:
             yum:
-              tmux: []
               docker: []
           services:
             sysvinit:
               docker:
                 enabled: 'true'
                 ensureRunning: 'true'
-          files:
-            /tmp/Dockerfile:
-              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/Dockerfile
-              mode: "000640"
-              owner: "ec2-user"
-              group: "ec2-user"
-            /tmp/socket-fixer.sh:
-              source: !Sub https://${ConfigBucketName}.s3.amazonaws.com/socket-fixer.sh
-              mode: "000740"
-              owner: "ec2-user"
-              group: "ec2-user"
           commands:
-            01_install_docker:
-              command: yum install -y docker
-            02_make_jenkins_dir:
-              command: mkdir -p /var/jenkins_home
-            03_chown_jenkins_dir:
-              command: chown ec2-user:ec2-user /var/jenkins_home
-            04_copy_files:
-              command: cp /tmp/Dockerfile /tmp/socket-fixer.sh /var/jenkins_home/
-            05_config_docker_user:
-              command: usermod -a -G docker ec2-user
-            06_start_docker:
+            00_start_docker:
               command: service docker start
-            07_build_jenkins_docker_image:
-              command: cd /var/jenkins_home && docker build . -t jenkins
-            08_start_jenkins_docker_container:
-              command: docker run -t --name jenkins2 --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
+            01_config_docker_user:
+              command: usermod -a -G docker ec2-user
+            02_chgrp_docker.sock:
+              command: chgrp docker /var/run/docker.sock
+            03_test_s3_download:
+              command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
+            04_unpack:
+              command: cd /tmp && tar zxvf init.tgz
+            05_create_jenkins_dirs:
+              command: mkdir -p /var/jenkins_home/{install,.aws}
+            06_copy_files:
+              command: cp -p /tmp/init-files/* /var/jenkins_home/install/ && cp -p /tmp/init-files/.aws/.credentials /var/jenkins_home/.aws/
+            07_chown_jenkins_dir:
+              command: chown -R ec2-user:ec2-user /var/jenkins_home
+            08_update_system:
+              command: yum update -y
+            09_build_jenkins_docker_image:
+              command: cd /var/jenkins_home/install/ && DOCKER_BUILDKIT=1 docker build -t jenkins .
+            10_start_jenkins_docker_container:
+              command: docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
                         --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro 
-                        --volume /var/run/docker.sock:/var/run/docker.sock jenkins2
-              test: docker ps -a | grep -v jenkins
-            09_run_socket-fixer:
-              command: cd /var/jenkins_home && ./socket-fixer.sh
+                        --volume /var/run/docker.sock:/var/run/docker.sock jenkins
+              test: test $( docker ps -a | grep jenkins | wc -l ) -eq 0
+            11_run_socket-fixer:
+              command: cd /var/jenkins_home/install/ && ./socket-fixer.sh
+            12_run_breadcrumb-fixer:
+              command: cd /var/jenkins_home/install/ && ./breadcrumb-fixer.sh
     Properties:
       ImageId: !Ref AmiId
       InstanceType: !Ref InstanceType
       IamInstanceProfile: !Ref InstanceProfile
       KeyName: !Ref 'KeyName'
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: '30'
+            DeleteOnTermination: 'true'
+            Encrypted: 'true'
       UserData: !Base64
         Fn::Join:
           - ''
