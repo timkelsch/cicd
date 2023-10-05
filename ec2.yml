@@ -46,9 +46,9 @@ Resources:
             01_unpack:
               command: cd /tmp && tar zxvf init.tgz
             02_create_jenkins_dirs:
-              command: mkdir -p /var/jenkins_home/{install.aws}
+              command: mkdir -p /var/jenkins_home/{install,.aws}
             03_copy_files:
-              command: cp -p /tmp/init-files/{Dockerfile,socket-fixer.sh,jenkins-plugins.txt,install-aws-tools.sh,install-plugins.sh,breadcrumb-fixer.sh} /var/jenkins_home/install/ && cp -p /tmp/init-files/.credentials /var/jenkins_home/.aws/
+              command: cp -p /tmp/init-files/* /var/jenkins_home/install/ && cp -p /tmp/init-files/.aws/.credentials /var/jenkins_home/.aws/
             04_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
             05_update_system:

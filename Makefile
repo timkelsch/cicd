@@ -18,7 +18,7 @@ validate:
 	sam validate --lint -t jenkins.yml
 
 sshec2:
-	ssh -i ~/.ssh/v1.pem ec2-user@ec2-107-22-158-12.compute-1.amazonaws.com
+	ssh -i ~/.ssh/v1.pem ec2-user@ec2-54-242-247-45.compute-1.amazonaws.com
 
 sshec3:
 	ssh -i ~/.ssh/v1.pem ec2-user@ec2-34-229-97-22.compute-1.amazonaws.com
