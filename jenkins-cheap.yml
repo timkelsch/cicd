@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  AWS CloudFormation template to create ALB + jenkins server
+  AWS CloudFormation template to create jenkins server
 Parameters:
   AmiId:
     Type: AWS::EC2::Image::Id
@@ -50,11 +50,14 @@ Resources:
             03_test_s3_download:
               command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
             04_unpack:
-              command: cd /tmp && tar zxvf init.tgz
+              command: cd /tmp && tar zxvpf init.tgz
             05_create_jenkins_dirs:
-              command: mkdir -p /var/jenkins_home/{install,.aws}
+              command: mkdir -p /var/jenkins_home/{backup,install}
             06_copy_files:
-              command: cp -p /tmp/init-files/* /var/jenkins_home/install/ && cp -p /tmp/init-files/.aws/.credentials /var/jenkins_home/.aws/
+              command: >
+                id && mv /tmp/init-files/backup.cron /etc/cron.d/ && 
+                mv /tmp/init-files/backup.sh /var/jenkins_home/backup/ && 
+                cp -p /tmp/init-files/* /var/jenkins_home/install/
             07_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
             08_update_system:
@@ -62,9 +65,10 @@ Resources:
             09_build_jenkins_docker_image:
               command: cd /var/jenkins_home/install/ && DOCKER_BUILDKIT=1 docker build -t jenkins .
             10_start_jenkins_docker_container:
-              command: docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
-                        --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro 
-                        --volume /var/run/docker.sock:/var/run/docker.sock jenkins
+              command: >
+                docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
+                --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro 
+                --volume /var/run/docker.sock:/var/run/docker.sock jenkins
               test: test $( docker ps -a | grep jenkins | wc -l ) -eq 0
             11_run_socket-fixer:
               command: cd /var/jenkins_home/install/ && ./socket-fixer.sh

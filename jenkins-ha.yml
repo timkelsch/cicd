@@ -44,10 +44,9 @@ Parameters:
     Description: SSL certificate for Application load balancer
     Default: arn:aws:acm:us-east-1:287140326780:certificate/9514ecfe-4992-4761-8b73-e1d832ebcebc
     Type: String
-  SamBucketName:
+  ConfigBucketName:
     Type: String
-    Description: Name of s3 bucket to which sam artifacts are uploaded
-    Default: aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg
+    Default: config-figgity-fuggity
 
 Resources:
   VPC:
@@ -179,11 +178,14 @@ Resources:
             03_test_s3_download:
               command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
             04_unpack:
-              command: cd /tmp && tar zxvf init.tgz
+              command: cd /tmp && tar zxvpf init.tgz
             05_create_jenkins_dirs:
-              command: mkdir -p /var/jenkins_home/{install,.aws}
+              command: mkdir -p /var/jenkins_home/{backup,install}
             06_copy_files:
-              command: cp -p /tmp/init-files/* /var/jenkins_home/install/ && cp -p /tmp/init-files/.aws/.credentials /var/jenkins_home/.aws/
+              command: >
+                mv /tmp/init-files/backup.cron /etc/cron.d/ && 
+                mv /tmp/init-files/backup.sh /var/jenkins_home/backup/ && 
+                cp -p /tmp/init-files/* /var/jenkins_home/install/
             07_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
             08_update_system:
@@ -191,9 +193,10 @@ Resources:
             09_build_jenkins_docker_image:
               command: cd /var/jenkins_home/install/ && DOCKER_BUILDKIT=1 docker build -t jenkins .
             10_start_jenkins_docker_container:
-              command: docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
-                        --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro 
-                        --volume /var/run/docker.sock:/var/run/docker.sock jenkins
+              command: >
+                docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
+                --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro 
+                --volume /var/run/docker.sock:/var/run/docker.sock jenkins
               test: test $( docker ps -a | grep jenkins | wc -l ) -eq 0
             11_run_socket-fixer:
               command: cd /var/jenkins_home/install/ && ./socket-fixer.sh
@@ -207,7 +210,7 @@ Resources:
         - DeviceName: /dev/xvda
           Ebs:
             VolumeType: gp3
-            VolumeSize: '30'
+            VolumeSize: '25'
             DeleteOnTermination: 'true'
             Encrypted: 'true'
       KeyName: !Ref 'KeyName'
@@ -255,11 +258,14 @@ Resources:
             03_test_s3_download:
               command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
             04_unpack:
-              command: cd /tmp && tar zxvf init.tgz
+              command: cd /tmp && tar zxvpf init.tgz
             05_create_jenkins_dirs:
-              command: mkdir -p /var/jenkins_home/{install,.aws}
+              command: mkdir -p /var/jenkins_home/{backup,install}
             06_copy_files:
-              command: cp -p /tmp/init-files/* /var/jenkins_home/install/ && cp -p /tmp/init-files/.aws/.credentials /var/jenkins_home/.aws/
+              command: >
+                mv /tmp/init-files/backup.cron /etc/cron.d/ && 
+                mv /tmp/init-files/backup.sh /var/jenkins_home/backup/ && 
+                cp -p /tmp/init-files/* /var/jenkins_home/install/
             07_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
             08_update_system:
@@ -267,9 +273,10 @@ Resources:
             09_build_jenkins_docker_image:
               command: cd /var/jenkins_home/install/ && DOCKER_BUILDKIT=1 docker build -t jenkins .
             10_start_jenkins_docker_container:
-              command: docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
-                        --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro 
-                        --volume /var/run/docker.sock:/var/run/docker.sock jenkins
+              command: >
+                docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
+                --volume jenkins-data:/var/jenkins_home --volume jenkins-docker-certs:/certs/client:ro 
+                --volume /var/run/docker.sock:/var/run/docker.sock jenkins
               test: test $( docker ps -a | grep jenkins | wc -l ) -eq 0
             11_run_socket-fixer:
               command: cd /var/jenkins_home/install/ && ./socket-fixer.sh
@@ -284,7 +291,7 @@ Resources:
         - DeviceName: /dev/xvda
           Ebs:
             VolumeType: gp3
-            VolumeSize: '30'
+            VolumeSize: '8'
             DeleteOnTermination: 'true'
             Encrypted: 'true'
       UserData: !Base64
@@ -388,7 +395,7 @@ Resources:
             - lambda:UpdateFunctionCode
             - lambda:UpdateFunctionConfiguration
             Resource:
-            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:mfl-scoring-MflScoringFunction-ZOOH586c3NQZ
+            - !ImportValue MflScoringFunctionArn
           - Sid: CreateIAM
             Effect: Allow
             Action:
@@ -407,7 +414,7 @@ Resources:
             - iam:TagRole
             Resource:
             - !Sub arn:aws:iam::${AWS::AccountId}:role/mfl-scoring-MflScoringFunctionIamRole-12ITGEOKQJ4LZ
-            - Sid: APIGateway
+          - Sid: APIGateway
             Effect: Allow
             Action:
             - apigateway:DELETE
@@ -416,7 +423,7 @@ Resources:
             - apigateway:POST
             - apigateway:PUT
             Resource:
-            - arn:aws:apigateway:us-east-1:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
+            - !Sub arn:aws:apigateway:us-east-1:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
       Roles:
         - !Ref InstanceProfileRole
 
@@ -517,5 +524,5 @@ Resources:
 
 Outputs:
   LoadBalancerUrl:
-    Description: The URL of the ALB
+    Description: URL of the ALB
     Value: !GetAtt ApplicationLoadBalancer.DNSName
