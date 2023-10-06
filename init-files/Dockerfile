@@ -17,7 +17,7 @@ COPY install-plugins.sh .
 RUN chown -R jenkins:jenkins /var/jenkins_home
 RUN echo "alias si='/opt/aws/bin/cfn-init \
   -v --stack ec2 --resource EC2Instance1 --configsets jenkins_install --region us-east-1'" >> ~/.bashrc
-RUN cd ..
+WORKDIR /var/jenkins_home
 # pw doesn't exist yet 
 # RUN ./install-plugins.sh
 
@@ -25,3 +25,4 @@ USER jenkins
 WORKDIR /var/jenkins_home/install
 RUN ./install-aws-tools.sh
 RUN jenkins-plugin-cli --plugins "blueocean configuration-as-code docker-workflow embeddable-build-status git-parameter golang pipeline-stage-view purge-job-history timestamper ws-cleanup"
+WORKDIR /var/jenkins_home
