@@ -178,14 +178,14 @@ Resources:
             03_test_s3_download:
               command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
             04_unpack:
-              command: cd /tmp && tar zxvpf init.tgz
+              command: cd /tmp && tar --no-same-owner -zxvf init.tgz
             05_create_jenkins_dirs:
               command: mkdir -p /var/jenkins_home/{backup,install}
             06_copy_files:
               command: >
                 mv /tmp/init-files/backup.cron /etc/cron.d/ && 
                 mv /tmp/init-files/backup.sh /var/jenkins_home/backup/ && 
-                cp -p /tmp/init-files/* /var/jenkins_home/install/
+                cp --preserve=mode /tmp/init-files/* /var/jenkins_home/install/
             07_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
             08_update_system:
@@ -258,14 +258,14 @@ Resources:
             03_test_s3_download:
               command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
             04_unpack:
-              command: cd /tmp && tar zxvpf init.tgz
+              command: cd /tmp && tar --no-same-owner -zxvf init.tgz
             05_create_jenkins_dirs:
               command: mkdir -p /var/jenkins_home/{backup,install}
             06_copy_files:
               command: >
                 mv /tmp/init-files/backup.cron /etc/cron.d/ && 
                 mv /tmp/init-files/backup.sh /var/jenkins_home/backup/ && 
-                cp -p /tmp/init-files/* /var/jenkins_home/install/
+                cp --preserve=mode /tmp/init-files/* /var/jenkins_home/install/
             07_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
             08_update_system:
@@ -362,17 +362,24 @@ Resources:
             Resource:
             - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring
             - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring/*
-          - Sid: S3
+          - Sid: S3read
+            Effect: Allow
+            Action:
+            - s3:List*
+            - s3:Get*
+            Resource:
+            - arn:aws:s3:::config-figgity-fuggity
+            - arn:aws:s3:::config-figgity-fuggity/*
+          - Sid: S3write
             Effect: Allow
             Action:
             - s3:List*
             - s3:Get*
             - s3:CreateMultipartUpload
-            - s3:GetObject
             - s3:PutObject
             Resource:
-            - arn:aws:s3:::config-figgity-fuggity
-            - arn:aws:s3:::config-figgity-fuggity/*
+            - arn:aws:s3:::my-jenkins-backup
+            - arn:aws:s3:::my-jenkins-backup/*
             - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg
             - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg/*            
           - Sid: CreateLambda
