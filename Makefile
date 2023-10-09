@@ -19,7 +19,7 @@ val-ec3:
 	sam validate --lint -t ec3.yml
 
 ssh:
-	ssh -i ~/.ssh/v1.pem ec2-user@ec2-107-22-67-125.compute-1.amazonaws.com
+	ssh -i ~/.ssh/v1.pem ec2-user@ec2-52-201-52-27.compute-1.amazonaws.com
 
 sshec3:
 	ssh -i ~/.ssh/v1.pem ec2-user@ec2-34-229-97-22.compute-1.amazonaws.com

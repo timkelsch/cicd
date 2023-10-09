@@ -50,7 +50,7 @@ Resources:
             03_test_s3_download:
               command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
             04_unpack:
-              command: cd /tmp && tar zxvpf init.tgz
+              command: cd /tmp && tar zxvf init.tgz
             05_create_jenkins_dirs:
               command: mkdir -p /var/jenkins_home/{backup,install}
             06_copy_files:
