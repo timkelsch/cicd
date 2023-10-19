@@ -385,6 +385,12 @@ Resources:
               -  ''
               - - !ImportValue CicdPipelineBucketArn
                 - '/jenkins-backups/*'
+            - !ImportValue MflScoringBucketArn
+            - !Join 
+              -  ''
+              - - !ImportValue MflScoringBucketArn
+                - '/builds/*'
+            # Remove these once we kill the SAM stack
             - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg
             - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg/*            
           - Sid: kmsUse
