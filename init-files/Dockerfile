@@ -1,7 +1,7 @@
 FROM jenkins/jenkins:lts-jdk11
 USER root
 RUN apt-get update && apt-get install -y lsb-release \
-  curl gnupg software-properties-common vim default-jre
+  curl gnupg software-properties-common vim default-jre awscli
 RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
   https://download.docker.com/linux/debian/gpg
 RUN echo "deb [arch=$(dpkg --print-architecture) \
