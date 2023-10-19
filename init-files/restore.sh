@@ -3,7 +3,8 @@
 set -euxo pipefail
 
 BACKUP_FILE=$1
-BACKUP_BUCKET='my-jenkins-backup'
+BACKUP_BUCKET='storage-cicdpipeline-116815dy3bgkm'
+BACKUP_PREFIX='jenkins-backups'
 MOUNT_DIR='/var/lib/docker/volumes/jenkins-data'
 ENVIRONMENT='prod'
 
@@ -12,7 +13,7 @@ docker container stop jenkins
 
 # Pull backup from S3
 cd "$MOUNT_DIR"
-aws s3 cp "s3://$BACKUP_BUCKET/$ENVIRONMENT-backups/$BACKUP_FILE" .
+aws s3 cp "s3://$BACKUP_BUCKET/$BACKUP_PREFIX/$BACKUP_FILE" .
 
 # Unpack tarball
 tar --overwrite -zxvpf "$BACKUP_FILE"

@@ -14,20 +14,15 @@ Parameters:
     Default: ami-0571d1c0feed82a15
   InstanceType:
     Type: String
-    Description: >
-      Specifies the EC2 instance type which is memory intensive usually
+    Description: Specifies the EC2 instance type which is usually memory intensive 
     Default: t4g.small
     ConstraintDescription: must be a valid EC2 instance type.
   KeyName:
     Type: String
     Description: >
-      Optional - Specifies the name of an existing Amazon EC2 key pair
+      Specifies the name of an existing Amazon EC2 key pair
       to enable SSH access to the EC2 instances in your cluster.
     Default: v1
-  BucketName:
-    Type: String
-    Description: Name of s3 Backup bucket to load your jenkins content
-    Default: my-jenkins-backup
   HostedZoneId:
     Type: String
     Description: ID of your hosted zone
@@ -176,7 +171,11 @@ Resources:
             02_chgrp_docker.sock:
               command: chgrp docker /var/run/docker.sock
             03_test_s3_download:
-              command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
+              command: !Join 
+                - ''
+                - - 'aws s3 cp s3://'
+                  - !ImportValue CicdPipelineBucketName
+                  - '/init-files/init.tgz /tmp/init.tgz'
             04_unpack:
               command: cd /tmp && tar --no-same-owner -zxvf init.tgz
             05_create_jenkins_dirs:
@@ -184,7 +183,7 @@ Resources:
             06_copy_files:
               command: >
                 mv /tmp/init-files/backup.cron /etc/cron.d/ && 
-                mv /tmp/init-files/backup.sh /var/jenkins_home/backup/ && 
+                mv /tmp/init-files/{restore.sh,backup.sh} /var/jenkins_home/backup/ && 
                 cp --preserve=mode /tmp/init-files/* /var/jenkins_home/install/
             07_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
@@ -210,7 +209,7 @@ Resources:
         - DeviceName: /dev/xvda
           Ebs:
             VolumeType: gp3
-            VolumeSize: '25'
+            VolumeSize: '15'
             DeleteOnTermination: 'true'
             Encrypted: 'true'
       KeyName: !Ref 'KeyName'
@@ -348,7 +347,7 @@ Resources:
             - arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31
           - Effect: Allow
             Action: ecr:*
-            Resource: !Sub arn:aws:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
+            Resource: !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
           - Sid: CloudFormationStack
             Effect: Allow
             Action:
@@ -360,16 +359,19 @@ Resources:
             - cloudformation:ExecuteChangeSet
             - cloudformation:GetTemplateSummary
             Resource:
-            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring
-            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring/*
+            - !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring
+            - !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring/*
           - Sid: S3read
             Effect: Allow
             Action:
             - s3:List*
             - s3:Get*
             Resource:
-            - arn:aws:s3:::config-figgity-fuggity
-            - arn:aws:s3:::config-figgity-fuggity/*
+            - !ImportValue CicdPipelineBucketArn
+            - !Join 
+              -  ''
+              - - !ImportValue CicdPipelineBucketArn
+                - '/init-files/*'
           - Sid: S3write
             Effect: Allow
             Action:
@@ -378,16 +380,29 @@ Resources:
             - s3:CreateMultipartUpload
             - s3:PutObject
             Resource:
-            - arn:aws:s3:::my-jenkins-backup
-            - arn:aws:s3:::my-jenkins-backup/*
+            - !ImportValue CicdPipelineBucketArn
+            - !Join 
+              -  ''
+              - - !ImportValue CicdPipelineBucketArn
+                - '/jenkins-backups/*'
             - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg
             - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg/*            
+          - Sid: kmsUse
+            Effect: Allow
+            Action:
+              - 'kms:DescribeKey'
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+            Resource: !ImportValue StorageKeyArn
           - Sid: CreateLambda
             Effect: Allow
             Action:
             - lambda:CreateFunction
             Resource:
-            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
+            - !Sub arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:*
           - Sid: Lambda
             Effect: Allow
             Action:
@@ -408,7 +423,7 @@ Resources:
             Action:
             - iam:CreateRole
             Resource:
-            - !Sub arn:aws:iam::${AWS::AccountId}:role/*
+            - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*
           - Sid: IAM
             Effect: Allow
             Action:
@@ -420,7 +435,7 @@ Resources:
             - iam:PassRole
             - iam:TagRole
             Resource:
-            - !Sub arn:aws:iam::${AWS::AccountId}:role/mfl-scoring-MflScoringFunctionIamRole-12ITGEOKQJ4LZ
+            - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/mfl-scoring-MflScoringFunctionIamRole-12ITGEOKQJ4LZ
           - Sid: APIGateway
             Effect: Allow
             Action:
@@ -430,7 +445,7 @@ Resources:
             - apigateway:POST
             - apigateway:PUT
             Resource:
-            - !Sub arn:aws:apigateway:us-east-1:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
+            - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
       Roles:
         - !Ref InstanceProfileRole
 
@@ -514,11 +529,6 @@ Resources:
       SecurityGroups:
         - !GetAtt ELBSecurityGroup.GroupId
 
-  JenkinsBackUpBucket:
-    Type: 'AWS::S3::Bucket'
-    Properties:
-      BucketName: !Ref BucketName
- 
   LoadBalancerCname:
     Type: 'AWS::Route53::RecordSet'
     Properties:

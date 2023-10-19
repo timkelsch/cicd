@@ -1,4 +1,5 @@
-config-bucket = config-figgity-fuggity
+CONFIG_BUCKET=storage-cicdpipeline-116815dy3bgkm
+CONFIG_BUCKET_PREFIX=init-files
 
 deploy:
 	aws cloudformation deploy --template-file jenkins-cheap.yml --stack-name jenkins-cheap --capabilities CAPABILITY_NAMED_IAM
@@ -19,7 +20,7 @@ val-ec3:
 	sam validate --lint -t ec3.yml
 
 ssh:
-	ssh -i ~/.ssh/v1.pem ec2-user@ec2-54-164-8-79.compute-1.amazonaws.com
+	ssh -i ~/.ssh/v1.pem ec2-user@ec2-3-81-121-117.compute-1.amazonaws.com
 
 sshec3:
 	ssh -i ~/.ssh/v1.pem ec2-user@ec2-34-229-97-22.compute-1.amazonaws.com
@@ -29,4 +30,4 @@ ssh-ha:
 
 updateinit:
 	gtar -zcvf init.tgz init-files
-	aws s3 cp init.tgz s3://$(config-bucket)/
+	aws s3 cp init.tgz s3://$(CONFIG_BUCKET)/${CONFIG_BUCKET_PREFIX}/

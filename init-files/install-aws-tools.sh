@@ -12,4 +12,4 @@ pip install --upgrade aws-sam-cli
 echo 'alias sam=/var/jenkins_home/sam/venv/bin/sam' >> ~/.bashrc
 
 echo 'alias ll="ls -al"' >> ~/.bashrc
-# sudo /opt/aws/bin/cfn-init -v --stack jenkins-cheap --resource EC2Instance1 --configsets jenkins_install --region us-east-1 &
+# sudo /opt/aws/bin/cfn-init -v --stack jenkins-ha --resource EC2Instance1 --configsets jenkins_install --region us-east-1 &
