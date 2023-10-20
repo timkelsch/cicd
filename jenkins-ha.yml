@@ -502,6 +502,7 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 15
       HealthyThresholdCount: 5
+      HealthCheckPath: '/login'
       Matcher:
         HttpCode: '200'
       Name: EC2TargetGroup
