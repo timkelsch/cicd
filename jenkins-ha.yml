@@ -206,7 +206,7 @@ Resources:
         - DeviceName: /dev/xvda
           Ebs:
             VolumeType: gp3
-            VolumeSize: '15'
+            VolumeSize: '13'
             DeleteOnTermination: 'true'
             Encrypted: 'true'
       KeyName: !Ref 'KeyName'
@@ -291,7 +291,7 @@ Resources:
         - DeviceName: /dev/xvda
           Ebs:
             VolumeType: gp3
-            VolumeSize: '15'
+            VolumeSize: '13'
             DeleteOnTermination: 'true'
             Encrypted: 'true'
       UserData: !Base64
