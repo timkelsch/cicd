@@ -5,7 +5,7 @@ set -euxo pipefail
 TIMESTAMP=$(date "+%Y%m%d-%H%M%S")
 MOUNT_DIR='/var/lib/docker/volumes/jenkins-data'
 TARBALL='jenkins_home.tgz'
-BACKUP_BUCKET='storage-mflscoring-17z65jydt72tq'
+BACKUP_BUCKET='storage-cicdpipeline-116815dy3bgkm'
 BACKUP_PREFIX='jenkins-backups'
 
 # Stop Container

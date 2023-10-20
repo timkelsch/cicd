@@ -39,9 +39,6 @@ Parameters:
     Description: SSL certificate for Application load balancer
     Default: arn:aws:acm:us-east-1:287140326780:certificate/9514ecfe-4992-4761-8b73-e1d832ebcebc
     Type: String
-  ConfigBucketName:
-    Type: String
-    Default: config-figgity-fuggity
 
 Resources:
   VPC:
@@ -294,7 +291,7 @@ Resources:
         - DeviceName: /dev/xvda
           Ebs:
             VolumeType: gp3
-            VolumeSize: '8'
+            VolumeSize: '15'
             DeleteOnTermination: 'true'
             Encrypted: 'true'
       UserData: !Base64
@@ -326,6 +323,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       ManagedPolicyArns:
+        # Remove this after we whack SAM
         - arn:aws:iam::aws:policy/AmazonSSMFullAccess
       AssumeRolePolicyDocument:
         Version: "2012-10-17"

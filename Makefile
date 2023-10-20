@@ -22,8 +22,8 @@ val-ec3:
 ssh:
 	ssh -i ~/.ssh/v1.pem ec2-user@ec2-3-81-121-117.compute-1.amazonaws.com
 
-sshec3:
-	ssh -i ~/.ssh/v1.pem ec2-user@ec2-34-229-97-22.compute-1.amazonaws.com
+ssh2:
+	ssh -i ~/.ssh/v1.pem ec2-user@ec2-44-210-100-222.compute-1.amazonaws.com
 
 ssh-ha:
 	ssh -i ~/.ssh/v1.pem ec2-user@ec2-23-22-101-239.compute-1.amazonaws.com
