@@ -1,7 +1,7 @@
 FROM jenkins/jenkins:lts-jdk11
 USER root
 RUN apt-get update && apt-get install -y lsb-release zip curl gnupg \
-   software-properties-common vim default-jre awscli docker-ce-cli  \
+   software-properties-common vim default-jre awscli docker-ce-cli jq \
    python3-pip python3-venv python3.11-venv&& apt-get clean
 RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
   https://download.docker.com/linux/debian/gpg
