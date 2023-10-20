@@ -255,7 +255,11 @@ Resources:
             02_chgrp_docker.sock:
               command: chgrp docker /var/run/docker.sock
             03_test_s3_download:
-              command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
+              command: !Join 
+                - ''
+                - - 'aws s3 cp s3://'
+                  - !ImportValue CicdPipelineBucketName
+                  - '/init-files/init.tgz /tmp/init.tgz'
             04_unpack:
               command: cd /tmp && tar --no-same-owner -zxvf init.tgz
             05_create_jenkins_dirs:
@@ -263,7 +267,7 @@ Resources:
             06_copy_files:
               command: >
                 mv /tmp/init-files/backup.cron /etc/cron.d/ && 
-                mv /tmp/init-files/backup.sh /var/jenkins_home/backup/ && 
+                mv /tmp/init-files/{restore.sh,backup.sh} /var/jenkins_home/backup/ && 
                 cp --preserve=mode /tmp/init-files/* /var/jenkins_home/install/
             07_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
