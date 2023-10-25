@@ -322,9 +322,6 @@ Resources:
   InstanceProfileRole:
     Type: AWS::IAM::Role
     Properties:
-      ManagedPolicyArns:
-        # Remove this after we whack SAM
-        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -337,7 +334,9 @@ Resources:
   InstanceProfileRolePolicies:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: AllowS3
+      Roles: 
+        - !Ref InstanceProfileRole
+      PolicyName: allPolicies
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -348,8 +347,13 @@ Resources:
             Resource:
             - arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31
           - Effect: Allow
-            Action: ecr:*
-            Resource: !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
+            Action: ecr:* # TODO: Narrow scope
+            Resource: 
+            - !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
+            - !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/mfl-score
+          - Effect: Allow
+            Action: ecr:GetAuthorizationToken 
+            Resource: '*'
           - Sid: CloudFormationStack
             Effect: Allow
             Action:
@@ -392,9 +396,6 @@ Resources:
               -  ''
               - - !ImportValue MflScoringBucketArn
                 - '/builds/*'
-            # Remove these once we kill the SAM stack
-            - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg
-            - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-gjos7i7n8mbg/*            
           - Sid: kmsUse
             Effect: Allow
             Action:
@@ -426,7 +427,7 @@ Resources:
             - lambda:UpdateFunctionCode
             - lambda:UpdateFunctionConfiguration
             Resource:
-            - !ImportValue MflScoringFunctionCheckArn
+            -  !ImportValue MflScoringFunctionCheckArn
           - Sid: CreateIAM
             Effect: Allow
             Action:
@@ -455,8 +456,6 @@ Resources:
             - apigateway:PUT
             Resource:
             - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
-      Roles:
-        - !Ref InstanceProfileRole
 
   # EC2 and ALB Security Groups
   ELBSecurityGroup:

@@ -18,6 +18,7 @@ docker container stop jenkins
 # Create tarball backup
 cd "${MOUNT_DIR}"
 tar --exclude="_data/workspace" --exclude "_data/jobs/mfl-scoring/builds" -zcvf "${TARBALL}" _data
+# TODO: Keep the latest build - hopefully avoiding the manual build before webhooks start working
 
 # Start Container
 docker container start jenkins
