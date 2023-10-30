@@ -22,12 +22,6 @@ val-ec3:
 ssh:
 	ssh -i ~/.ssh/v1.pem ec2-user@ec2-3-95-2-114.compute-1.amazonaws.com
 
-ssh2:
-	ssh -i ~/.ssh/v1.pem ec2-user@ec2-18-205-41-138.compute-1.amazonaws.com
-
-ssh-ha:
-	ssh -i ~/.ssh/v1.pem ec2-user@ec2-23-22-101-239.compute-1.amazonaws.com
-
 updateinit:
 	gtar -zcvf init.tgz init-files
 	aws s3 cp init.tgz s3://$(CONFIG_BUCKET)/${CONFIG_BUCKET_PREFIX}/
