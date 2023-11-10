@@ -3,11 +3,6 @@ Description: >
   AWS CloudFormation template to create ALB + jenkins server
 
 Parameters:
-  Urlname:
-    Description: Will be the first portion of the URL for your jenkins server
-    Type: String
-    Default: jenkins
-    ConstraintDescription: Must be a string.
   AmiId:
     Type: AWS::EC2::Image::Id
     Description: Specifies the AMI ID, using AL2 for arm64
@@ -16,8 +11,7 @@ Parameters:
     Type: String
     Description: Specifies the EC2 instance type which is usually memory intensive 
     Default: t4g.small
-    ConstraintDescription: must be a valid EC2 instance type.
-  KeyName:
+  SshKeyPairName:
     Type: String
     Description: >
       Specifies the name of an existing Amazon EC2 key pair
@@ -26,19 +20,19 @@ Parameters:
   HostedZoneId:
     Type: String
     Description: ID of your hosted zone
-    Default: Z0291479D96D3UFQISZF
-  RootDomain:
+    Default: Z07419102HFRMCTH28NVX
+  Domain:
     Type: String
-    Description: root domain (?)
-    Default: timismydaddy.com.
+    Description: Domain name
+    Default: timkelsch.com
+  DomainPrefix:
+    Description: Domain prefix of the URL for the jenkins server
+    Type: String
+    Default: jenkins
   SecurityGroupDescription:
     Description: Security Group Description
     Type: String
-    Default: This is a description of the security group. It provides security. Idiots.
-  AppLoadbalancerSslCertArn:
-    Description: SSL certificate for Application load balancer
-    Default: arn:aws:acm:us-east-1:287140326780:certificate/9514ecfe-4992-4761-8b73-e1d832ebcebc
-    Type: String
+    Default: This is a description of the security group. It provides security.
 
 Resources:
   VPC:
@@ -209,7 +203,7 @@ Resources:
             VolumeSize: '13'
             DeleteOnTermination: 'true'
             Encrypted: 'true'
-      KeyName: !Ref 'KeyName'
+      KeyName: !Ref 'SshKeyPairName'
       UserData: !Base64
         Fn::Join:
           - ''
@@ -286,7 +280,7 @@ Resources:
       ImageId: !Ref AmiId
       InstanceType: !Ref InstanceType
       IamInstanceProfile: !Ref InstanceProfile
-      KeyName: !Ref 'KeyName'
+      KeyName: !Ref 'SshKeyPairName'
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
@@ -457,7 +451,6 @@ Resources:
             Resource:
             - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
 
-  # EC2 and ALB Security Groups
   ELBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -493,7 +486,6 @@ Resources:
         ToPort: -1
         CidrIp: 0.0.0.0/0
 
-  # Target Group, Listener and Application Load Balancer
   EC2TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -520,7 +512,7 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       Certificates:
-      - CertificateArn: !Ref AppLoadbalancerSslCertArn
+      - CertificateArn: !Ref JenkinsCertificate
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref EC2TargetGroup
@@ -542,11 +534,18 @@ Resources:
     Type: 'AWS::Route53::RecordSet'
     Properties:
       HostedZoneId: !Ref HostedZoneId
-      Name: !Join [ ".", [ !Ref Urlname, !Ref RootDomain ] ]
+      Name: !Join [ ".", [ !Ref DomainPrefix, !Ref Domain ] ]
       Type: CNAME
       TTL: '60'
       ResourceRecords:
       - !GetAtt ApplicationLoadBalancer.DNSName
+
+  JenkinsCertificate:
+    Type: 'AWS::CertificateManager::Certificate'
+    Properties:
+      DomainName: !Join [ ".", [ !Ref DomainPrefix, !Ref Domain ] ]
+      CertificateTransparencyLoggingPreference: DISABLED
+      ValidationMethod: DNS
 
 Outputs:
   LoadBalancerUrl:

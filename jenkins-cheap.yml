@@ -19,9 +19,6 @@ Parameters:
       Optional - Specifies the name of an existing Amazon EC2 key pair
       to enable SSH access to the EC2 instances in your cluster.
     Default: v1
-  ConfigBucketName:
-    Type: String
-    Default: config-figgity-fuggity
 
 Resources:
   EC2Instance1:
@@ -48,15 +45,19 @@ Resources:
             02_chgrp_docker.sock:
               command: chgrp docker /var/run/docker.sock
             03_test_s3_download:
-              command: !Sub aws s3 cp s3://${ConfigBucketName}/init.tgz /tmp/init.tgz
+              command: !Join 
+                - ''
+                - - 'aws s3 cp s3://'
+                  - !ImportValue CicdPipelineBucketName
+                  - '/init-files/init.tgz /tmp/init.tgz'
             04_unpack:
-              command: cd /tmp && tar --no-same-owner -zxvf init.tgz && ls -l init-files
+              command: cd /tmp && tar --no-same-owner -zxvf init.tgz
             05_create_jenkins_dirs:
               command: mkdir -p /var/jenkins_home/{backup,install}
             06_copy_files:
               command: >
                 mv /tmp/init-files/backup.cron /etc/cron.d/ && 
-                mv /tmp/init-files/{backup.sh,restore.sh} /var/jenkins_home/backup/ && 
+                mv /tmp/init-files/{restore.sh,backup.sh} /var/jenkins_home/backup/ && 
                 cp --preserve=mode /tmp/init-files/* /var/jenkins_home/install/
             07_chown_jenkins_dir:
               command: chown -R ec2-user:ec2-user /var/jenkins_home
@@ -137,7 +138,7 @@ Resources:
             - arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31
           - Effect: Allow
             Action: ecr:*
-            Resource: !Sub arn:aws:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
+            Resource: !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
           - Sid: CloudFormationStack
             Effect: Allow
             Action:
@@ -149,8 +150,8 @@ Resources:
             - cloudformation:ExecuteChangeSet
             - cloudformation:GetTemplateSummary
             Resource:
-            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring
-            - !Sub arn:aws:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring/*
+            - !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring
+            - !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/mfl-scoring/*
           - Sid: S3read
             Effect: Allow
             Action:
@@ -176,7 +177,7 @@ Resources:
             Action:
             - lambda:CreateFunction
             Resource:
-            - !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
+            - !Sub arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:*
           - Sid: Lambda
             Effect: Allow
             Action:
@@ -197,7 +198,7 @@ Resources:
             Action:
             - iam:CreateRole
             Resource:
-            - !Sub arn:aws:iam::${AWS::AccountId}:role/*
+            - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*
           - Sid: IAM
             Effect: Allow
             Action:
@@ -209,7 +210,7 @@ Resources:
             - iam:PassRole
             - iam:TagRole
             Resource:
-            - !Sub arn:aws:iam::${AWS::AccountId}:role/mfl-scoring-MflScoringFunctionIamRole-12ITGEOKQJ4LZ
+            - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/mfl-scoring-MflScoringFunctionIamRole-12ITGEOKQJ4LZ
           - Sid: APIGateway
             Effect: Allow
             Action:
@@ -219,7 +220,7 @@ Resources:
             - apigateway:POST
             - apigateway:PUT
             Resource:
-            - !Sub arn:aws:apigateway:us-east-1:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
+            - !Sub arn:${AWS::Partition}:apigateway:us-east-1:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
       Roles:
         - !Ref InstanceProfileRoleTest
 
