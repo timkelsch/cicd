@@ -16,9 +16,9 @@ RUN chown -R jenkins:jenkins /var/jenkins_home
 WORKDIR /var/jenkins_home
 
 USER jenkins
-WORKDIR /var/jenkins_home/install
-RUN ./install-aws-tools.sh
+#WORKDIR /var/jenkins_home/install
+#RUN ./install-aws-tools.sh
 RUN jenkins-plugin-cli --plugins \
 "aws-credentials blueocean configuration-as-code docker-workflow embeddable-build-status \
 git-parameter golang pipeline-stage-view purge-job-history timestamper ws-cleanup"
-WORKDIR /var/jenkins_home
+#WORKDIR /var/jenkins_home

@@ -20,7 +20,7 @@ val-ec3:
 	sam validate --lint -t ec3.yml
 
 ssh:
-	ssh -i ~/.ssh/v1.pem ec2-user@ec2-54-162-48-205.compute-1.amazonaws.com
+	ssh -i ~/.ssh/v1.pem ec2-user@ec2-35-173-212-179.compute-1.amazonaws.com
 
 updateinit:
 	gtar -zcvf init.tgz init-files
