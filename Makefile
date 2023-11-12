@@ -10,6 +10,9 @@ deploy-ha:
 deploy-ec3:
 	aws cloudformation deploy --template-file ec3.yml --stack-name ec3 --capabilities CAPABILITY_NAMED_IAM
 
+delete-ha:
+	aws cloudformation delete-stack --stack-name jenkins-ha
+
 val:
 	sam validate --lint -t jenkins-cheap.yml
 
@@ -20,8 +23,9 @@ val-ec3:
 	sam validate --lint -t ec3.yml
 
 ssh:
-	ssh -i ~/.ssh/v1.pem ec2-user@ec2-35-173-212-179.compute-1.amazonaws.com
+	ssh -i ~/.ssh/v1.pem ec2-user@ec2-54-242-93-66.compute-1.amazonaws.com
 
 updateinit:
 	gtar -zcvf init.tgz init-files
 	aws s3 cp init.tgz s3://$(CONFIG_BUCKET)/${CONFIG_BUCKET_PREFIX}/
+	rm -f init.tgz

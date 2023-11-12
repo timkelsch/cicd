@@ -181,7 +181,7 @@ Resources:
             08_update_system:
               command: yum update -y
             09_build_jenkins_docker_image:
-              command: cd /var/jenkins_home/install/ && DOCKER_BUILDKIT=1 docker build -t jenkins .
+              command: cd /var/jenkins_home/install/ && DOCKER_BUILDKIT=0 docker build -t jenkins .
             10_start_jenkins_docker_container:
               command: >
                 docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
@@ -265,7 +265,7 @@ Resources:
             08_update_system:
               command: yum update -y
             09_build_jenkins_docker_image:
-              command: cd /var/jenkins_home/install/ && DOCKER_BUILDKIT=1 docker build -t jenkins .
+              command: cd /var/jenkins_home/install/ && DOCKER_BUILDKIT=0 docker build -t jenkins .
             10_start_jenkins_docker_container:
               command: >
                 docker run -t --name jenkins --restart=on-failure --detach --publish 8080:8080 --publish 50000:50000 
