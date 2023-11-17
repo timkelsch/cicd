@@ -10,13 +10,12 @@ Parameters:
     Type: String
     Description: >
       Specifies the EC2 instance type for jenkins, which is memory intensive usually
-      Defaults to m4.large
     Default: t4g.small
     ConstraintDescription: must be a valid EC2 instance type.
   KeyName:
     Type: String
     Description: >
-      Optional - Specifies the name of an existing Amazon EC2 key pair
+      Specifies the name of an existing Amazon EC2 key pair
       to enable SSH access to the EC2 instances in your cluster.
     Default: v1
 
