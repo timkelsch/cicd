@@ -6,7 +6,7 @@ Parameters:
   AmiId:
     Type: AWS::EC2::Image::Id
     Description: Specifies the AMI ID, using AL2 for arm64
-    Default: ami-0571d1c0feed82a15
+    Default: ami-08293cd37d25b872d
   InstanceType:
     Type: String
     Description: Specifies the EC2 instance type which is usually memory intensive 
@@ -421,7 +421,7 @@ Resources:
             - lambda:UpdateFunctionCode
             - lambda:UpdateFunctionConfiguration
             Resource:
-            -  !ImportValue MflScoringFunctionCheckArn
+            -  !ImportValue MflScoringFunctionArn
           - Sid: CreateIAM
             Effect: Allow
             Action:
