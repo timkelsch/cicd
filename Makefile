@@ -1,5 +1,4 @@
-CONFIG_BUCKET=storage-cicdpipeline-116815dy3bgkm
-CONFIG_BUCKET_PREFIX=init-files
+
 
 deploy:
 	aws cloudformation deploy --template-file jenkins-cheap.yml --stack-name jenkins-cheap --capabilities CAPABILITY_NAMED_IAM
@@ -8,28 +7,28 @@ deploy-ha:
 	aws cloudformation deploy --template-file jenkins-ha.yml --stack-name jenkins-ha --capabilities CAPABILITY_NAMED_IAM
 
 update-ha:
-	aws cloudformation update-stack --stack-name jenkins-ha --template-body jenkins-ha.yml \
-		--capabilities CAPABILITY_NAMED_IAM
+	aws cloudformation update-stack --stack-name jenkins-ha --template-body jenkins-ha.yml --capabilities CAPABILITY_NAMED_IAM
 
-deploy-ec3:
-	aws cloudformation deploy --template-file ec3.yml --stack-name ec3 --capabilities CAPABILITY_NAMED_IAM
+deploy-ec2:
+	aws cloudformation deploy --template-file ec2.yml --stack-name ec2 --capabilities CAPABILITY_NAMED_IAM
+
+update-ec2:
+	aws cloudformation update-stack --stack-name ec2 --template-body ec2.yml --capabilities CAPABILITY_NAMED_IAM
 
 delete-ha:
 	aws cloudformation delete-stack --stack-name jenkins-ha
 
 val:
-	sam validate --lint -t jenkins-cheap.yml
+	aws cloudformation validate-template --template-body file://jenkins-cheap.yml
 
 val-ha:
-	sam validate --lint -t jenkins-ha.yml
+	aws cloudformation validate-template --template-body file://jenkins-ha.yml
 
-val-ec3:
-	sam validate --lint -t ec3.yml
+val-ec2:
+	aws cloudformation validate-template --template-body file://ec2.yml
 
 ssh:
 	ssh -i ~/.ssh/v1.pem ec2-user@${EC2_PUBLIC_DNS}
 
-updateinit:
-	gtar -zcvf init.tgz init-files
-	aws s3 cp init.tgz s3://$(CONFIG_BUCKET)/${CONFIG_BUCKET_PREFIX}/
-	rm -f init.tgz
+update-init:
+	cd utils && ./update-init.sh

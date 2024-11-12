@@ -1,0 +1,272 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation template to create a Jenkins server
+
+Parameters:
+  AmiId:
+    Type: AWS::EC2::Image::Id
+    Description: Specifies the AMI ID, using AL2023 for arm64
+    Default: ami-0085e579c65d43668
+  InstanceType:
+    Type: String
+    Description: Specifies the EC2 instance type for jenkins, which is memory intensive usually
+    Default: t4g.small
+    ConstraintDescription: Must be a valid EC2 instance type
+  KeyName:
+    Type: String
+    Description: >
+      Optional - Specifies the name of an existing Amazon EC2 key pair
+      to enable SSH access to the EC2 instances in your cluster.
+    Default: v1
+  # ConfigBucketName:
+  #   Type: String
+  #   Default: config-figgity-fuggity
+
+Resources:
+  EC2Instance3:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          jenkins_install:
+            - setup_jenkins
+        setup_jenkins:
+          services:
+            systemd:
+              docker:
+                enabled: 'true'
+                ensureRunning: 'true'
+          commands:
+            00_install_docker:
+              command: dnf install docker -y
+            00_start_docker:
+              command: systemctl start docker && systemctl enable docker && systemctl status docker
+            01_config_ec2-user:
+              command: usermod -a -G docker ec2-user
+            02_test_s3_download:
+              command: !Join 
+                - ''
+                - - 'aws s3 cp s3://'
+                  - !ImportValue CicdPipelineBucketName
+                  - '/init-files/init.tgz /tmp/init.tgz'
+            03_unpack:
+              command: cd /tmp && tar --no-same-owner -zxvf init.tgz
+            04_create_jenkins_dirs:
+              command: mkdir -p /var/jenkins_home/{backup,install}
+            05_copy_files:
+              command: >
+                mv /tmp/init-files/{restore.sh,backup.sh} /var/jenkins_home/backup/ && 
+                ln -s /var/jenkins_home/backup/backup.sh /etc/cron.daily/ && 
+                cp --preserve=mode /tmp/init-files/* /var/jenkins_home/install/
+            06_chown_jenkins_dir:
+              command: chown -R ec2-user:ec2-user /var/jenkins_home
+            07_update_system:
+              command: yum update -y
+            08_create_docker_network:
+              command: docker network create jenkins
+            09_run_docker_dind:
+              command: docker run \
+                --name jenkins-docker \
+                --rm \
+                --detach \
+                --privileged \
+                --network jenkins \
+                --network-alias docker \
+                --env DOCKER_TLS_CERTDIR=/certs \
+                --volume jenkins-docker-certs:/certs/client \
+                --volume jenkins-data:/var/jenkins_home \
+                --publish 2376:2376 \
+                docker:dind \
+                --storage-driver overlay2
+            10_build_jenkins_docker_image:
+              command: cd /var/jenkins_home/install/ && docker build -t jenkins:mfl .
+            11_run_jenkins_docker_container:
+              command: docker run \
+                --name jenkins-blueocean \
+                --restart=on-failure \
+                --detach \
+                --network jenkins \
+                --env DOCKER_HOST=tcp://docker:2376 \
+                --env DOCKER_CERT_PATH=/certs/client \
+                --env DOCKER_TLS_VERIFY=1 \
+                --publish 8080:8080 \
+                --publish 50000:50000 \
+                --volume jenkins-data:/var/jenkins_home \
+                --volume jenkins-docker-certs:/certs/client:ro \
+                jenkins:mfl
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfileTest3
+      KeyName: !Ref 'KeyName'
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: '30'
+            DeleteOnTermination: 'false'
+            Encrypted: 'true'
+      UserData: !Base64
+        Fn::Join:
+          - ''
+          - - |
+              #!/bin/bash -xe
+            - |
+            - '/opt/aws/bin/cfn-init -v '
+            - '         --stack '
+            - !Ref 'AWS::StackName'
+            - ' --resource EC2Instance3 '
+            - ' --configsets jenkins_install '
+            # - ' --role '
+            # - !Ref InstanceProfileRoleTest3
+            - ' --region '
+            - !Ref 'AWS::Region'
+            - |+
+
+  InstanceProfileTest3:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: "jenkins-test-profile3"
+      Roles: 
+        - !Ref InstanceProfileRoleTest3
+
+  InstanceProfileRoleTest3:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+
+  InstanceProfileRoleTestPoliciesTest3:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles: 
+        - !Ref InstanceProfileRoleTest3
+      PolicyName: allPolicies
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CloudFormationTemplate
+            Effect: Allow
+            Action:
+            - cloudformation:CreateChangeSet
+            Resource:
+            - arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31
+          - Effect: Allow
+            Action: ecr:* # TODO: Narrow scope
+            Resource: 
+            - !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
+            - !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/mfl-score
+          - Effect: Allow
+            Action: ecr:GetAuthorizationToken 
+            Resource: '*'
+          - Sid: CloudFormationStack
+            Effect: Allow
+            Action:
+            - cloudformation:CreateChangeSet
+            - cloudformation:DeleteStack
+            - cloudformation:DescribeChangeSet
+            - cloudformation:DescribeStackEvents
+            - cloudformation:DescribeStack*
+            - cloudformation:ExecuteChangeSet
+            - cloudformation:GetTemplateSummary
+            Resource:
+            - !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/${AWS::StackName}
+            - !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/${AWS::StackName}/*
+          - Sid: S3read
+            Effect: Allow
+            Action:
+            - s3:List*
+            - s3:Get*
+            Resource:
+            - !ImportValue CicdPipelineBucketArn
+            - !Join 
+              -  ''
+              - - !ImportValue CicdPipelineBucketArn
+                - '/init-files/*'
+            - arn:aws:s3:::cf-templates-1bqnclmqrq5ge-us-east-1
+            - arn:aws:s3:::cf-templates-1bqnclmqrq5ge-us-east-1/*
+          - Sid: S3write
+            Effect: Allow
+            Action:
+            - s3:List*
+            - s3:Get*
+            - s3:CreateMultipartUpload
+            - s3:PutObject
+            Resource:
+            - !ImportValue CicdPipelineBucketArn
+            - !Join 
+              -  ''
+              - - !ImportValue CicdPipelineBucketArn
+                - '/jenkins-backups/*'
+            - !ImportValue MflScoringBucketArn
+            - !Join 
+              -  ''
+              - - !ImportValue MflScoringBucketArn
+                - '/builds/*'
+          - Sid: kmsUse
+            Effect: Allow
+            Action:
+              - 'kms:DescribeKey'
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+            Resource: !ImportValue StorageKeyArn
+          - Sid: CreateLambda
+            Effect: Allow
+            Action:
+            - lambda:CreateFunction
+            Resource:
+            - !Sub arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:*
+          - Sid: Lambda
+            Effect: Allow
+            Action:
+            - lambda:AddPermission
+            - lambda:DeleteFunction
+            - lambda:GetFunction
+            - lambda:GetFunctionConfiguration
+            - lambda:ListTags
+            - lambda:RemovePermission
+            - lambda:TagResource
+            - lambda:UntagResource
+            - lambda:UpdateAlias
+            - lambda:UpdateFunctionCode
+            - lambda:UpdateFunctionConfiguration
+            Resource:
+            -  !ImportValue MflScoringFunctionArn
+          - Sid: CreateIAM
+            Effect: Allow
+            Action:
+            - iam:CreateRole
+            Resource:
+            - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*
+          - Sid: IAM
+            Effect: Allow
+            Action:
+            - iam:AttachRolePolicy
+            - iam:CreateRole
+            - iam:DeleteRole
+            - iam:DetachRolePolicy
+            - iam:GetRole
+            - iam:PassRole
+            - iam:TagRole
+            Resource:
+            - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/mfl-scoring-MflScoringFunctionIamRole-12ITGEOKQJ4LZ
+          - Sid: APIGateway
+            Effect: Allow
+            Action:
+            - apigateway:DELETE
+            - apigateway:GET
+            - apigateway:PATCH
+            - apigateway:POST
+            - apigateway:PUT
+            Resource:
+            - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
