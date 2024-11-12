@@ -2,7 +2,7 @@ FROM jenkins/jenkins:lts-jdk17
 USER root
 RUN apt-get update && apt-get install -y lsb-release zip curl gnupg \
    software-properties-common vim default-jre awscli jq \
-   python3-pip python3-venv python3.11-venv \
+   python3-pip python3-venv python3.11-venv pass \
    amazon-ecr-credential-helper && apt-get clean
 RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
   https://download.docker.com/linux/debian/gpg
@@ -19,4 +19,7 @@ USER jenkins
 RUN jenkins-plugin-cli --plugins \
 "aws-credentials blueocean configuration-as-code docker-workflow embeddable-build-status \
 git-parameter golang pipeline-stage-view purge-job-history timestamper ws-cleanup"
+RUN curl -L -o /usr/local/bin/docker-credential-pass \
+  https://github.com/docker/docker-credential-helpers/releases/download/v0.8.0/docker-credential-pass-v0.8.0.linux-arm64
+RUN chmod 555 /usr/local/bin/docker-credential-pass
 RUN echo '{ "credsStore": "ecr-login" }' > /var/jenkins_home/.docker/config.json

@@ -7,6 +7,10 @@ deploy:
 deploy-ha:
 	aws cloudformation deploy --template-file jenkins-ha.yml --stack-name jenkins-ha --capabilities CAPABILITY_NAMED_IAM
 
+update-ha:
+	aws cloudformation update-stack --stack-name jenkins-ha --template-body jenkins-ha.yml \
+		--capabilities CAPABILITY_NAMED_IAM
+
 deploy-ec3:
 	aws cloudformation deploy --template-file ec3.yml --stack-name ec3 --capabilities CAPABILITY_NAMED_IAM
 
@@ -23,7 +27,7 @@ val-ec3:
 	sam validate --lint -t ec3.yml
 
 ssh:
-	ssh -i ~/.ssh/v1.pem ec2-user@ec2-54-92-160-52.compute-1.amazonaws.com
+	ssh -i ~/.ssh/v1.pem ec2-user@${EC2_PUBLIC_DNS}
 
 updateinit:
 	gtar -zcvf init.tgz init-files
