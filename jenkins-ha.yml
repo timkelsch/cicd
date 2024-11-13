@@ -380,7 +380,7 @@ Resources:
           - Effect: Allow
             Action: ecr:* # TODO: Narrow scope
             Resource: 
-            - !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
+            # - !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
             - !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/mfl-score
           - Effect: Allow
             Action: ecr:GetAuthorizationToken 
@@ -414,7 +414,7 @@ Resources:
             Action:
             - s3:List*
             - s3:Get*
-            - s3:CreateMultipartUpload
+            # - s3:CreateMultipartUpload
             - s3:PutObject
             Resource:
             - !ImportValue CicdPipelineBucketArn
@@ -450,6 +450,7 @@ Resources:
             - lambda:DeleteFunction
             - lambda:GetFunction
             - lambda:GetFunctionConfiguration
+            - lambda:ListFunctions
             - lambda:ListTags
             - lambda:RemovePermission
             - lambda:TagResource
@@ -486,7 +487,7 @@ Resources:
             - apigateway:POST
             - apigateway:PUT
             Resource:
-            - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:${AWS::AccountId}:/apis/a123456789/m2tgcwbr31
+            - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis/a123456789/m2tgcwbr31
 
   ELBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
