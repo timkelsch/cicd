@@ -437,10 +437,11 @@ Resources:
               - 'kms:GenerateDataKey'
               - 'kms:GenerateDataKeyWithoutPlaintext'
             Resource: !ImportValue StorageKeyArn
-          - Sid: CreateLambda
+          - Sid: Create and List Lambda Function
             Effect: Allow
             Action:
             - lambda:CreateFunction
+            - lambda:ListFunctions
             Resource:
             - !Sub arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:*
           - Sid: Lambda
