@@ -443,7 +443,7 @@ Resources:
             - lambda:CreateFunction
             - lambda:ListFunctions
             Resource:
-            - !Sub arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:*
+            - '*'
           - Sid: Lambda
             Effect: Allow
             Action:
