@@ -1,3 +1,22 @@
 {
-    "makefile.configureOnOpen": false
+    "makefile.configureOnOpen": false,
+    "yaml.customTags": [
+        "!Equals sequence",
+        "!FindInMap sequence",
+        "!GetAtt",
+        "!GetAZs",
+        "!GetAZs scalar",
+        "!GetAZs sequence",
+        "!GetAZs mapping",
+        "!ImportValue",
+        "!Join sequence",
+        "!Ref",
+        "!Select sequence",
+        "!Split sequence",
+        "!Sub",
+        "!Base64",
+        "!Base64 scalar",
+        "!Base64 sequence",
+        "!Base64 mapping",
+    ]
 }

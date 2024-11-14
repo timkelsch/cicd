@@ -6,14 +6,8 @@ deploy:
 deploy-ha:
 	aws cloudformation deploy --template-file jenkins-ha.yml --stack-name jenkins-ha --capabilities CAPABILITY_NAMED_IAM
 
-update-ha:
-	aws cloudformation update-stack --stack-name jenkins-ha --template-body jenkins-ha.yml --capabilities CAPABILITY_NAMED_IAM
-
 deploy-ec2:
 	aws cloudformation deploy --template-file ec2.yml --stack-name ec2 --capabilities CAPABILITY_NAMED_IAM
-
-update-ec2:
-	aws cloudformation update-stack --stack-name ec2 --template-body ec2.yml --capabilities CAPABILITY_NAMED_IAM
 
 delete-ha:
 	aws cloudformation delete-stack --stack-name jenkins-ha

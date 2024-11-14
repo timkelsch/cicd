@@ -159,9 +159,16 @@ Resources:
             Resource:
             - arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31
           - Effect: Allow
-            Action: ecr:* # TODO: Narrow scope
+            Action: 
+            - ecr:Describe*
+            - ecr:Get*
+            - ecr:List*
+            - ecr:Put*
+            - ecr:UploadLayerPart
+            - ecr:InitiateLayerUpload
+            - ecr:CompleteLayerUpload
+            - ecr:BatchCheckLayerAvailability
             Resource: 
-            - !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/lambda-sam-go
             - !Sub arn:${AWS::Partition}:ecr:us-east-1:${AWS::AccountId}:repository/mfl-score
           - Effect: Allow
             Action: ecr:GetAuthorizationToken 

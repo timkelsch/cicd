@@ -26,3 +26,14 @@
 1. Get the name of the latest backup in s3://storage-cicdpipeline-\*/jenkins/backups/
 1. SSH to the EC2 instance
 1. $ cd /var/jenkins_home/backup && ./restore.sh <filename>
+
+#### Completed Tasks:
+
+1. Upgrade to Jenkins 2.479.1
+1. Increase web server session timeout to 120 minutes
+1. Scoped ECR IAM perms down from \*
+1. Enable ALB flow logs
+
+TODO:
+
+1. Automate pull of public IP to make ssh
