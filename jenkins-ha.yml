@@ -407,6 +407,7 @@ Resources:
             Action:
             - lambda:AddPermission
             - lambda:DeleteFunction
+            - lambda:GetAlias
             - lambda:GetFunction
             - lambda:GetFunctionConfiguration
             - lambda:ListFunctions

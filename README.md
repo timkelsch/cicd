@@ -38,3 +38,10 @@ This repo provides the CI/CD pipeline for the mfl-scoring web application.
 1. [x] Scoped ECR IAM perms down from \*
 1. [x] Increase web server session timeout to 120 minutes
 1. [x] Upgrade to Jenkins 2.479.1
+
+Using Multi-Branch Pipeline to Get Branch Variable:
+
+1. Create MBP
+1. Enter Git URL
+1. Add "multibranch scan webhook trigger" plugin and restart Jenkins
+1. Go to Pipeline Config, check "Scan by webhook", and Save
